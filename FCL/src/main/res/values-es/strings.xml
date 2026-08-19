@@ -1,0 +1,165 @@
+<resources>
+    <!-- ═══════════════════════════════════════════════════════════════════
+         Lucerion Launcher — Traducción al español
+         Principios (docs/ESPECIFICACION.md):
+         · Nombres propios sin traducción se quedan como están
+           (Zink, Turnip, NeoForge, Vulkan, LWJGL, shaders, Modrinth…).
+         · Donde el original es críptico, el español EXPLICA: qué hace la
+           opción, en qué beneficia y cuándo conviene activarla.
+         · Los textos aún no traducidos caen al inglés automáticamente.
+         ═══════════════════════════════════════════════════════════════════ -->
+
+    <string name="app_name_import">Instalar modpack</string>
+
+    <!-- Pantalla inicial y permisos -->
+    <string name="splash_agreement">Lucerion Launcher necesita permiso de almacenamiento para guardar y leer los archivos del juego (mods, mundos, ajustes). El launcher es de código abierto, y este permiso se usa únicamente para que el juego funcione: no toca nada fuera de sus carpetas.</string>
+    <string name="splash_permission_msg">Falta el permiso de almacenamiento. Concédeselo a Lucerion Launcher para poder continuar.</string>
+    <string name="splash_permission_grant">Conceder</string>
+    <string name="splash_permission_title">Se necesita permiso de almacenamiento</string>
+    <string name="splash_permission_close">Cerrar la aplicación</string>
+    <string name="splash_permission_settings">Ajustes</string>
+    <string name="splash_permission_settings_msg">Elegiste «No volver a preguntar». Para continuar, concede el permiso de almacenamiento a mano en los ajustes de Android.</string>
+    <string name="notification_permission">El permiso de notificaciones sirve para avisarte del progreso de instalaciones y descargas, y evitar que Android corte el juego en segundo plano.</string>
+
+    <string name="splash_title">Bienvenido a Lucerion Launcher</string>
+    <string name="splash_eula_error">No se pudo descargar el acuerdo de uso. Revisa tu conexión a internet.</string>
+    <string name="splash_eula_next">Aceptar y continuar</string>
+    <string name="splash_runtime_title">Instalar o actualizar los componentes del launcher</string>
+    <string name="splash_runtime_install">Instalar / Actualizar</string>
+    <string name="missing_runtime_arch_files">Este instalador no incluye los archivos para la arquitectura de tu dispositivo (%s). Descarga el paquete de instalación de la arquitectura correcta (%s) o el paquete universal (%s).</string>
+
+    <!-- Menú principal -->
+    <string name="account">Cuenta</string>
+    <string name="version">Versión</string>
+    <string name="launch_mode">Modo de inicio</string>
+    <string name="manage">Gestionar</string>
+    <string name="download">Descargar</string>
+    <string name="controller">Controles</string>
+    <string name="multiplayer">Multijugador</string>
+    <string name="setting">Ajustes</string>
+
+    <!-- Acerca de -->
+    <string name="about">Acerca de</string>
+    <string name="about_sponsor">Patrocinar</string>
+    <string name="about_source">Código abierto</string>
+    <string name="about_desc">Lucerion Launcher permite jugar Minecraft: Java Edition en Android, con los modpacks del servidor Cretania listos para entrar.\n\nEs un fork de Fold Craft Launcher (FCL-Team), que a su vez se basa en HMCLCore y toma código de PojavLauncher y Boat. Todo el mérito del motor es de esos proyectos.\n\nEste launcher se distribuye bajo licencia GPL-3: su código fuente completo es público, y cualquier redistribución debe respetar la misma licencia.</string>
+
+    <!-- Cuentas -->
+    <string name="account_add_server">Añadir servidor de autenticación</string>
+    <string name="account_add_server_url">URL del servidor</string>
+    <string name="account_add_server_name">Nombre del servidor</string>
+    <string name="account_cape">Capa</string>
+    <string name="account_create">Crear cuenta</string>
+    <string name="account_create_offline">Crear cuenta libre (sin Microsoft)</string>
+    <string name="account_create_microsoft">Iniciar sesión con Microsoft</string>
+    <string name="account_create_external">Crear cuenta externa</string>
+    <string name="account_create_username">Nombre de usuario</string>
+    <string name="account_create_password">Contraseña</string>
+    <string name="account_create_server">Servidor de autenticación</string>
+    <string name="account_create_server_not_select">Sin servidor de autenticación</string>
+    <string name="account_create_home">Inicio</string>
+    <string name="account_create_register">Registrarse</string>
+    <string name="account_create_alert">Completa primero los datos de la cuenta.</string>
+    <string name="account_injector_server">Servidor de autenticación</string>
+    <string name="account_login">Iniciar sesión</string>
+    <string name="account_methods_offline">Cuenta libre</string>
+    <string name="account_methods_offline_name_invalid">El nombre de usuario solo puede llevar letras sin acentos, números y guiones bajos, con un máximo de 16 caracteres.\n\nVálidos: Tungsten, Tungsten_123\nNo válidos: «Ejem plo» (espacio), «Ejem-plo%%» (símbolos), nombres de más de 16 caracteres.\n\nSi el servidor al que juegas quita esta restricción con un mod o plugin, puedes ignorar este aviso.</string>
+    <string name="account_methods_yggdrasil">Cuenta Mojang</string>
+    <string name="account_methods_authlib_injector">Cuenta externa</string>
+    <string name="account_methods_microsoft">Cuenta Microsoft</string>
+    <string name="account_failed">No se pudo actualizar la sesión de la cuenta</string>
+    <string name="account_failed_expired">La sesión caducó. Elimina la cuenta y vuelve a iniciar sesión.</string>
+    <string name="account_failed_no_character">Esta cuenta no tiene ningún personaje creado.</string>
+    <string name="account_failed_connect_authentication_server">No se pudo contactar con el servidor de autenticación. Revisa tu conexión a internet.</string>
+    <string name="account_failed_connect_injector_server">No se pudo conectar con el servidor de autenticación. Revisa tu red y que la URL sea correcta.</string>
+    <string name="account_failed_server_disconnected">El servidor de autenticación no responde. Puedes entrar con cuenta libre o reintentar el inicio de sesión.</string>
+    <string name="account_failed_server_response_malformed">Respuesta inválida: el servidor de autenticación puede estar fallando.</string>
+    <string name="account_failed_invalid_credentials">Contraseña incorrecta o demasiados intentos seguidos. Espera un momento y prueba otra vez.</string>
+    <string name="account_failed_invalid_token">Vuelve a iniciar sesión.</string>
+    <string name="account_failed_invalid_password">Contraseña no válida</string>
+    <string name="account_failed_migration">Tu cuenta debe migrarse a una cuenta Microsoft. Si ya la migraste, inicia sesión con la cuenta Microsoft migrada.</string>
+    <string name="account_failed_injector_download_failure">No se pudo descargar authlib-injector. Revisa tu red o cambia el espejo de descarga en Ajustes.</string>
+    <string name="account_failed_character_deleted">Ese personaje ya fue eliminado.</string>
+    <string name="account_failed_ssl">Error SSL al conectar con el servidor (certificado o red interceptada).</string>
+    <string name="account_failed_wrong_account">Iniciaste sesión con una cuenta distinta a la esperada.</string>
+    <string name="account_skin_invalid_skin">El archivo de skin no es válido</string>
+    <string name="account_methods_microsoft_error_add_family">Al ser menor de 18 años, un adulto debe añadirte a una familia de Microsoft para poder jugar Minecraft.</string>
+    <string name="account_methods_microsoft_error_country_unavailable">Xbox Live no está disponible en tu país o región actual.</string>
+    <string name="account_methods_microsoft_error_missing_xbox_account">Confirma que compraste Minecraft: Java Edition. Si ya lo tienes, crea tu perfil de juego aquí: https://www.minecraft.net/msaprofile/mygames/editprofile</string>
+    <string name="account_methods_microsoft_error_banned">Tu cuenta puede haber sido suspendida por Xbox Live.\nUsa «Consultar suspensión» arriba para ver los detalles.</string>
+    <string name="account_methods_microsoft_error_unknown">No se pudo iniciar sesión</string>
+    <string name="account_methods_microsoft_error_wrong_verify_method">En la página de Microsoft, entra con tu cuenta (por ejemplo el teléfono) y tu contraseña. No uses el inicio de sesión por código de verificación.</string>
+    <string name="account_methods_microsoft_error_no_license">No hay ninguna compra de Minecraft en esta cuenta. Puedes comprarlo aquí: https://www.xbox.com/games/store/minecraft-java-bedrock-edition-for-pc/9nxp44l49shj\nSi usas Game Pass, crea tu perfil de juego aquí: https://www.minecraft.net/msaprofile/mygames/editprofile</string>
+    <string name="account_methods_microsoft_error_no_character">Aún no creaste tu perfil de juego. Créalo aquí: https://www.minecraft.net/msaprofile/mygames/editprofile</string>
+    <string name="account_methods_microsoft_error_add_family_probably">Revisa que la edad de tu cuenta Microsoft sea al menos 18 años. Si no lo es y crees que es un error, puedes corregirla en la web oficial de Microsoft.</string>
+    <string name="account_methods_microsoft_close_page">Autorización de la cuenta Microsoft completada.</string>
+    <string name="account_methods_microsoft_hint">Toca «Iniciar sesión»: se copiará un código automáticamente. Pégalo en el navegador que se abrirá para completar el proceso.</string>
+    <string name="account_login_refresh">Volver a iniciar sesión</string>
+    <string name="account_login_refresh_microsoft_hint">La autorización caducó y hay que volver a añadir la cuenta Microsoft.\nToca «Aceptar»: se copiará un código automáticamente. Pégalo en el navegador que se abrirá para completar el proceso.</string>
+    <string name="account_select_character">Elegir personaje</string>
+    <string name="account_skin">Skin</string>
+    <string name="account_skin_type_default">Por defecto</string>
+    <string name="account_skin_upload">Elegir archivo de skin</string>
+    <string name="account_skin_model">Modelo de skin</string>
+    <string name="account_skin_upload_file">Subir</string>
+    <string name="account_skin_no_file_selected">Ningún archivo elegido</string>
+    <string name="account_skin_reset">Restablecer</string>
+    <string name="account_skin_reset_confirm">¿Restablecer la skin? Se eliminará tu skin personalizada.</string>
+    <string name="account_skin_uploaded">Skin subida correctamente</string>
+    <string name="account_skin_reset_done">Skin restablecida a la de por defecto</string>
+    <string name="account_cape_management">Gestión de capas</string>
+    <string name="account_cape_none">No hay capas disponibles</string>
+    <string name="account_cape_active">Activa</string>
+    <string name="account_cape_hide">Ocultar capa</string>
+    <string name="account_cape_activated">Capa activada</string>
+    <string name="account_cape_hidden">Capa oculta</string>
+    <string name="account_state_no_account">Sin cuenta</string>
+    <string name="account_state_add">Toca para añadir una</string>
+
+    <!-- Acciones -->
+    <string name="action_refresh">Actualizar</string>
+    <string name="action_retry">Reintentar</string>
+    <string name="action_share">Compartir</string>
+    <string name="action_upload">Subir registro</string>
+    <string name="action_skip">Omitir</string>
+
+    <string name="announcement">Anuncio: %s</string>
+    <string name="announcement_significant">Este es un anuncio importante. Confirma que lo leíste antes de ocultarlo. ¿Quieres ocultarlo igualmente?</string>
+
+    <string name="archive_author">Autor(es)</string>
+    <string name="archive_date">Fecha de publicación</string>
+    <string name="archive_game_version">Versión del juego</string>
+    <string name="archive_name">Nombre del archivo</string>
+    <string name="archive_version">Versión</string>
+
+    <string name="assets_download">Descargando recursos del juego</string>
+    <string name="assets_download_all">Comprobando la integridad de los recursos</string>
+    <string name="assets_index_malformed">El índice de recursos descargado está dañado. Reintenta la descarga.</string>
+
+    <!-- Botones -->
+    <string name="button_back">Atrás</string>
+    <string name="button_cancel">Cancelar</string>
+    <string name="button_copy">Copiar</string>
+    <string name="button_download">Descargar</string>
+    <string name="button_export">Exportar</string>
+    <string name="button_hide">Ocultar</string>
+    <string name="button_install">Instalar</string>
+    <string name="button_mouse_left">Clic izquierdo</string>
+    <string name="button_mouse_right">Clic derecho</string>
+    <string name="button_next">Siguiente</string>
+    <string name="button_paste">Pegar</string>
+    <string name="button_prev">Anterior</string>
+    <string name="button_remove">Eliminar</string>
+    <string name="button_remove_confirm">¿Eliminar de forma permanente? Esta acción no se puede deshacer.</string>
+    <string name="button_save_as">Guardar como</string>
+    <string name="button_select_all">Seleccionar todo</string>
+    <string name="button_select_invert">Invertir selección</string>
+    <string name="button_set">Establecer</string>
+    <string name="button_reset">Restablecer</string>
+    <string name="button_overwrite">Sobrescribir</string>
+
+    <!-- Comunidad -->
+    <string name="community">Comunidad</string>
+    <string name="community_hint">Únete a la comunidad para recibir novedades y reportar problemas. Respeta las normas al entrar.</string>
+    <string name="community_qq">Grupo QQ</string>
+</resources>
