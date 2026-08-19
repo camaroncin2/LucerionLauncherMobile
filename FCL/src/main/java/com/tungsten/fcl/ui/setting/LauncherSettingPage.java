@@ -116,6 +116,7 @@ public class LauncherSettingPage extends FCLCommonPage implements View.OnClickLi
         languageList.add(getContext().getString(R.string.settings_launcher_language_ukrainian));
         languageList.add(getContext().getString(R.string.settings_launcher_language_german));
         languageList.add(getContext().getString(R.string.settings_launcher_language_traditional_chinese_hk));
+        languageList.add(getContext().getString(R.string.settings_launcher_language_spanish));
         ArrayAdapter<String> languageAdapter = new ArrayAdapter<>(getContext(), R.layout.item_spinner_auto_tint, languageList);
         languageAdapter.setDropDownViewResource(R.layout.item_spinner_dropdown);
         binding.language.setAdapter(languageAdapter);

@@ -28,6 +28,12 @@ public class LocaleUtils {
     public static Locale UKRAINIAN = new Locale("uk");
     public static Locale GERMAN = new Locale("de");
     public static Locale HK = new Locale("zh", "HK");
+    // Lucerion: español, idioma principal del launcher
+    public static Locale SPANISH = new Locale("es");
+
+    // Lucerion: por defecto arranca en español (9). El usuario puede cambiarlo
+    // en ajustes; 0 vuelve al idioma del sistema.
+    public static final int DEFAULT_LANG = 9;
 
     private static DateTimeFormatter dateTimeFormatter;
 
@@ -49,18 +55,18 @@ public class LocaleUtils {
 
     public static boolean isChinese(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("launcher", Context.MODE_PRIVATE);
-        int lang = sharedPreferences.getInt("lang", 0);
+        int lang = sharedPreferences.getInt("lang", DEFAULT_LANG);
         return lang == 2 || lang == 8 || (lang == 0 && getSystemLocale().getLanguage().startsWith("zh"));
     }
 
     public static int getLanguage(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("launcher", Context.MODE_PRIVATE);
-        return sharedPreferences.getInt("lang", 0);
+        return sharedPreferences.getInt("lang", DEFAULT_LANG);
     }
 
     public static Context setLanguage(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("launcher", Context.MODE_PRIVATE);
-        return updateResources(context, sharedPreferences.getInt("lang", 0));
+        return updateResources(context, sharedPreferences.getInt("lang", DEFAULT_LANG));
     }
 
     public static void changeLanguage(Context context, int lang) {
@@ -96,6 +102,8 @@ public class LocaleUtils {
                 return GERMAN;
             case 8:
                 return HK;
+            case 9:
+                return SPANISH;
             default:
                 return getSystemLocale();
         }
