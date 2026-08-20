@@ -26,15 +26,18 @@ de FCL; no está afiliada a FCL-Team ni a Mojang/Microsoft.
 
 El README original de FCL está en [docs/README_FCL_upstream.md](docs/README_FCL_upstream.md).
 
-## Estructura
+## Arquitectura
 
-| Módulo | Qué es |
-|---|---|
-| `FCL/` | La aplicación (interfaz, ajustes, cuentas) |
-| `FCLCore/` | Núcleo de lanzamiento (port de HMCL: versiones, loaders, descargas) |
-| `FCLauncher/` | Capa nativa (JVM por JNI, renderers, entrada táctil) |
-| `LWJGL/` | LWJGL portado a Android |
-| `docs/ESPECIFICACION.md` | Especificación de diseño del fork |
+La aplicación es propia; el motor es una dependencia.
+
+| Módulo | Qué es | De quién |
+|---|---|---|
+| **`Lucerion/`** | **La app: todas las pantallas, flujos y estética. Kotlin + Compose, en español nativo** | **Lucerion Studios** |
+| `FCLCore/` | Motor: versiones, loaders, cuentas, descargas (port de HMCL) | FCL-Team (dependencia) |
+| `FCLauncher/` | Motor: JVM por JNI, renderers, superficie de juego | FCL-Team (dependencia) |
+| `LWJGL/` | LWJGL portado a Android | FCL-Team (dependencia) |
+| `FCL/` | La app original de FCL — solo referencia de integración, no se distribuye | FCL-Team |
+| `docs/ESPECIFICACION.md` | Especificación de diseño | Lucerion Studios |
 
 ## Compilar
 

@@ -1,0 +1,9 @@
+<resources>
+    <!-- Tema del framework para la ventana (antes de que Compose pinte):
+         fondo navy profundo de la marca, sin barra de acción. -->
+    <style name="Theme.Lucerion" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#060B16</item>
+        <item name="android:statusBarColor">#060B16</item>
+        <item name="android:navigationBarColor">#060B16</item>
+    </style>
+</resources>

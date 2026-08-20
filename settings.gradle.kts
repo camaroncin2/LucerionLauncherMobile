@@ -16,7 +16,8 @@ dependencyResolutionManagement {
         maven("https://jitpack.io")
     }
 }
-rootProject.name = "Fold Craft Launcher"
+rootProject.name = "Lucerion Launcher"
+include(":Lucerion")
 include(":FCL")
 include(":FCLCore")
 include(":FCLauncher")

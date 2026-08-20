@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Avisos de progreso de descargas/instalación y evitar que Android
+         corte el juego en segundo plano. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_lucerion"
+        android:theme="@style/Theme.Lucerion"
+        android:largeHeap="true"
+        tools:targetApi="31"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffic: el backend de modpacks sirve por HTTP plano
+             (IP:3100) hasta que tenga dominio con TLS. Quitarlo cuando exista. -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

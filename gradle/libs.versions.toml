@@ -32,6 +32,8 @@ junrar = "7.5.5"
 jspecify = "1.0.0"
 androidxTestExtJunit = "1.1.5"
 androidxTestRunner = "1.5.2"
+composeBom = "2025.01.00"
+activityCompose = "1.9.3"
 
 [libraries]
 datastore = { module = "androidx.datastore:datastore", version.ref = "datastore" }
@@ -62,8 +64,14 @@ junrar = { group = "com.github.junrar", name = "junrar", version.ref = "junrar" 
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

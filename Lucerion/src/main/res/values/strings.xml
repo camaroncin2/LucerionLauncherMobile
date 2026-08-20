@@ -1,0 +1,20 @@
+<resources>
+    <!-- La app nace en español: este ES el idioma por defecto.
+         Solo quedan en su idioma los nombres propios (Cretania, NeoForge,
+         Zink, Vulkan…). -->
+    <string name="app_name" translatable="false">Lucerion Launcher</string>
+
+    <string name="splash_lema">Expandiendo las físicas al límite</string>
+
+    <string name="home_titulo" translatable="false">LUCERION</string>
+    <string name="home_subtitulo">Launcher oficial de Cretania</string>
+    <string name="home_jugar">JUGAR CRETANIA</string>
+    <string name="home_jugar_detalle">Entra al servidor con todo listo: el launcher instala y actualiza el modpack por ti.</string>
+    <string name="home_estado_preparando">Preparando…</string>
+    <string name="home_cuenta">Cuenta</string>
+    <string name="home_cuenta_sin">Sin apodo elegido</string>
+    <string name="home_cuenta_detalle">Elige el apodo con el que entrarás al servidor. La cuenta Microsoft es opcional.</string>
+    <string name="home_ajustes">Ajustes</string>
+    <string name="home_ajustes_detalle">Rendimiento, memoria y opciones avanzadas — cada una con su explicación.</string>
+    <string name="home_version">Versión %1$s</string>
+</resources>

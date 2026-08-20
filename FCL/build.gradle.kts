@@ -47,7 +47,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.lucerion.launcher"
+        applicationId = "com.tungsten.fcl"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1327

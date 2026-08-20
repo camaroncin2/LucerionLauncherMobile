@@ -54,5 +54,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: app-${{matrix.arch}}
-          path: FCL/build/outputs/apk/*/*
+          path: |
+            Lucerion/build/outputs/apk/*/*
+            FCL/build/outputs/apk/*/*
         #  retention-days: 1

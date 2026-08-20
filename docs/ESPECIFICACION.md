@@ -70,9 +70,15 @@ Datos operativos del backend:
 
 ## Hoja de ruta
 
-1. ~~Base FCL con historial + identidad Lucerion~~ (este commit)
-2. Traducción es completa (~1233 cadenas) con explicaciones mejoradas, español
-   por defecto
-3. Tema steampunk dorado (colores por defecto, icono, splash)
-4. Pantalla de inicio "Jugar Cretania" + módulo de sincronización Lucerion
-5. QA en dispositivos + publicación del APK en www.cretania.net
+1. ~~Base FCL con historial + identidad Lucerion~~
+2. ~~Módulo `Lucerion/` propio: app desde cero (Kotlin + Compose), español
+   nativo, tema steampunk, splash + home~~
+   — Nota: la traducción de las 1233 cadenas de FCL quedó obsoleta con esta
+   decisión: la app propia solo tiene textos propios, nacidos en español.
+3. Cuenta: apodo local (el servidor autentica por AuthMod) + Microsoft opcional
+   vía FCLCore
+4. Sincronización Lucerion: manifest → instancia NeoForge → mods por
+   install-info con SHA-1 → config de referencia (Zink/Turnip, memoria auto)
+5. Lanzamiento del juego: puente con FCLauncher (superficie, controles táctiles)
+6. Ajustes con explicaciones (rendimiento, memoria, renderer, avanzado)
+7. QA en dispositivos + publicación del APK en www.cretania.net
