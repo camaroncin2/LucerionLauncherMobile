@@ -8,10 +8,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -59,29 +59,47 @@ fun SplashScreen(alTerminar: () -> Unit) {
         label = "giro",
     )
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.radialGradient(listOf(Bg2, Bg))),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            EngranajeGirando(angulo)
-            Text(
-                text = stringResource(R.string.home_titulo),
-                style = MaterialTheme.typography.displayLarge,
-                color = OroClaro,
-            )
-            Text(
-                text = stringResource(R.string.splash_lema),
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextoSuave,
-            )
+        if (maxWidth > maxHeight) {
+            // Horizontal: engranaje y marca lado a lado, aprovechando el ancho.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+            ) {
+                EngranajeGirando(angulo)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MarcaSplash()
+                }
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                EngranajeGirando(angulo)
+                MarcaSplash()
+            }
         }
     }
+}
+
+@Composable
+private fun MarcaSplash() {
+    Text(
+        text = stringResource(R.string.home_titulo),
+        style = MaterialTheme.typography.displayLarge,
+        color = OroClaro,
+    )
+    Text(
+        text = stringResource(R.string.splash_lema),
+        style = MaterialTheme.typography.bodyMedium,
+        color = TextoSuave,
+    )
 }
 
 /** Engranaje de 10 dientes dibujado a mano — el sello steampunk de la marca. */

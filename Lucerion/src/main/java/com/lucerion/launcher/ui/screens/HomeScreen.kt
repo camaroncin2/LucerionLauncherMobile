@@ -5,14 +5,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,19 +44,102 @@ import com.lucerion.launcher.ui.theme.TextoSuave
 /**
  * Pantalla principal. El principio de la especificación manda: el camino feliz
  * es UN toque — "JUGAR CRETANIA" — y todas las decisiones técnicas las toma el
- * launcher. Cuenta y Ajustes existen, explicadas, pero nunca estorban.
+ * launcher.
+ *
+ * Dos distribuciones:
+ *  · Vertical: pila única (marca arriba, CTA al centro, secciones abajo).
+ *  · Horizontal: dos paneles — marca a la izquierda, acción y secciones a la
+ *    derecha — porque en apaisado la pila desperdicia el ancho y obliga a
+ *    hacer scroll para lo importante.
  */
 @Composable
 fun HomeScreen(versionApp: String) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Bg2, Bg))),
+    ) {
+        if (maxWidth > maxHeight) {
+            HomeHorizontal(versionApp)
+        } else {
+            HomeVertical(versionApp)
+        }
+    }
+}
+
+// ── Distribución vertical ────────────────────────────────────────────────────
+
+@Composable
+private fun HomeVertical(versionApp: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Bg2, Bg)))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // ── Cabecera ─────────────────────────────────────────────────────────
+        CabeceraMarca()
+        Spacer(Modifier.height(12.dp))
+        SeparadorRemaches()
+        Spacer(Modifier.height(28.dp))
+        BloqueJugar()
+        Spacer(Modifier.height(36.dp))
+        TarjetasSecciones()
+        Spacer(Modifier.height(40.dp))
+        PieVersion(versionApp)
+    }
+}
+
+// ── Distribución horizontal ──────────────────────────────────────────────────
+
+@Composable
+private fun HomeHorizontal(versionApp: String) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Panel de marca: fijo, sin scroll — es identidad, no contenido.
+        Column(
+            modifier = Modifier
+                .weight(0.42f)
+                .fillMaxHeight()
+                .padding(horizontal = 28.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            CabeceraMarca()
+            Spacer(Modifier.height(14.dp))
+            SeparadorRemaches()
+            Spacer(Modifier.weight(1f))
+            PieVersion(versionApp)
+        }
+
+        // Borde dorado vertical que separa los paneles, como junta de placa.
+        Box(
+            modifier = Modifier
+                .width(2.dp)
+                .fillMaxHeight()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Oro, Color.Transparent))),
+        )
+
+        // Panel de acción: aquí sí puede haber scroll si crecen las secciones.
+        Column(
+            modifier = Modifier
+                .weight(0.58f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            BloqueJugar()
+            Spacer(Modifier.height(24.dp))
+            TarjetasSecciones()
+        }
+    }
+}
+
+// ── Piezas compartidas por ambas distribuciones ──────────────────────────────
+
+@Composable
+private fun CabeceraMarca() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = stringResource(R.string.home_titulo),
             style = MaterialTheme.typography.displayLarge,
@@ -64,12 +150,12 @@ fun HomeScreen(versionApp: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = TextoSuave,
         )
+    }
+}
 
-        Spacer(Modifier.height(12.dp))
-        SeparadorRemaches()
-        Spacer(Modifier.height(28.dp))
-
-        // ── CTA principal ────────────────────────────────────────────────────
+@Composable
+private fun BloqueJugar() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BotonJugar(alPulsar = { /* fase siguiente: sincronizar y lanzar */ })
         Spacer(Modifier.height(10.dp))
         Text(
@@ -78,10 +164,12 @@ fun HomeScreen(versionApp: String) {
             color = TextoSuave,
             textAlign = TextAlign.Center,
         )
+    }
+}
 
-        Spacer(Modifier.height(36.dp))
-
-        // ── Secciones (cada una dice qué es y para qué sirve) ────────────────
+@Composable
+private fun TarjetasSecciones() {
+    Column {
         TarjetaSeccion(
             titulo = stringResource(R.string.home_cuenta),
             valorActual = stringResource(R.string.home_cuenta_sin),
@@ -95,14 +183,16 @@ fun HomeScreen(versionApp: String) {
             explicacion = stringResource(R.string.home_ajustes_detalle),
             alPulsar = { /* fase siguiente: pantalla de ajustes */ },
         )
-
-        Spacer(Modifier.height(40.dp))
-        Text(
-            text = stringResource(R.string.home_version, versionApp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextoSuave.copy(alpha = 0.6f),
-        )
     }
+}
+
+@Composable
+private fun PieVersion(versionApp: String) {
+    Text(
+        text = stringResource(R.string.home_version, versionApp),
+        style = MaterialTheme.typography.bodyMedium,
+        color = TextoSuave.copy(alpha = 0.6f),
+    )
 }
 
 /** CTA dorado con gradiente de marca y marco tipo placa metálica. */
