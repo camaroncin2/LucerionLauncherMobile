@@ -23,9 +23,33 @@ object RepositorioAjustes {
 
     // Rendimiento
     /** Memoria de la JVM en MB; 0 = automática (40 % de la RAM, entre 2 y 6 GB). */
-    fun memoriaMb(c: Context) = prefs(c).getInt("memoria_mb", 0)
+    /**
+     * Techo seguro de memoria del equipo: 30 % de la RAM.
+     *
+     * Medido en dispositivo, no estimado. Con el 40 % el proceso llegaba a 5 GB
+     * residentes, el sistema se quedaba con ~1 GB libre y el kernel empezaba a
+     * comprimir memoria del juego a zram (762 MB en 40 minutos). Comprimir y
+     * descomprimir quema CPU, el CPU calienta y el recorte termico del
+     * fabricante se lleva puestos los FPS. Reservar de mas sale caro.
+     */
+    fun limiteSeguroMb(c: Context): Int {
+        val am = c.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        return ((info.totalMem / 1048576L).toInt() * 30 / 100).coerceIn(1536, 4096)
+    }
+
+    /**
+     * 0 = automatica. Se vuelve a acotar AL LEER: un valor guardado por una
+     * version anterior podia estar muy por encima de lo que el equipo aguanta,
+     * y ese valor seguia mandando aunque el limite hubiera bajado.
+     */
+    fun memoriaMb(c: Context): Int {
+        val guardada = prefs(c).getInt("memoria_mb", 0)
+        if (guardada <= 0) return 0
+        return guardada.coerceIn(1536, limiteSeguroMb(c))
+    }
     fun guardarMemoriaMb(c: Context, v: Int) =
-        prefs(c).edit().putInt("memoria_mb", if (v == 0) 0 else v.coerceIn(1536, 4096)).apply()
+        prefs(c).edit().putInt("memoria_mb", if (v == 0) 0 else v.coerceIn(1536, limiteSeguroMb(c))).apply()
 
     fun vsync(c: Context) = prefs(c).getBoolean("vsync", true)
     fun guardarVsync(c: Context, v: Boolean) = prefs(c).edit().putBoolean("vsync", v).apply()

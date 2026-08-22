@@ -35,6 +35,12 @@ object Lanzador {
 
     const val SERVIDOR = "mc.cretania.net"
 
+    /** Version del perfil de rendimiento; subirla lo vuelve a aplicar. */
+    private const val VERSION_PERFIL = "v2"
+
+    /** Lo unico que cambia de v1 a v2 (ver aplicarPerfilRendimiento). */
+    private val CAMBIOS_V2 = setOf("maxFps")
+
     /**
      * Ámbito propio del arranque: una vez que la JVM del juego está viva, el
      * proceso debe llegar hasta abrir la pantalla del juego aunque el jugador
@@ -113,7 +119,8 @@ object Lanzador {
      */
     private fun aplicarPerfilRendimiento(dirEjecucion: File) {
         val marcador = File(dirEjecucion, "lucerion-perfil-rendimiento.txt")
-        if (marcador.isFile) return
+        val version = if (marcador.isFile) marcador.readText().trim() else ""
+        if (version == VERSION_PERFIL) return
         val archivo = File(dirEjecucion, "options.txt")
         val lineas = if (archivo.isFile) archivo.readLines().toMutableList() else mutableListOf()
         val valores = linkedMapOf(
@@ -121,7 +128,13 @@ object Lanzador {
             "graphicsMode" to "0",          // gráficos rápidos
             "renderDistance" to "8",
             "simulationDistance" to "8",
-            "maxFps" to "60",               // el panel rinde ~45; 60 de tope sobra
+            // 45 y no 60: medido en dispositivo, el equipo sostiene 36-48 FPS,
+            // asi que un tope de 60 no se alcanza nunca. Un tope inalcanzable no
+            // limita nada — el juego renderiza a plena potencia, calienta, y el
+            // recorte termico del fabricante se lleva por delante lo ganado. Con
+            // 45 el ritmo se estabiliza cerca de lo que el equipo da de verdad:
+            // menos calor y, sobre todo, menos oscilacion.
+            "maxFps" to "45",
             "particles" to "1",             // partículas reducidas
             "entityShadows" to "false",
             "renderClouds" to "\"fast\"",
@@ -130,12 +143,16 @@ object Lanzador {
             "entityDistanceScaling" to "0.75",
             "ao" to "true",                 // luz suave: barata con Sodium y se nota
         )
-        for ((clave, valor) in valores) {
+        // Instalacion nueva: se aplica el perfil entero. Actualizacion desde un
+        // perfil anterior: SOLO las claves que cambiaron, o se le pisarian al
+        // jugador los ajustes de video que haya tocado a mano desde entonces.
+        val aEscribir = if (version.isEmpty()) valores else valores.filterKeys { it in CAMBIOS_V2 }
+        for ((clave, valor) in aEscribir) {
             val idx = lineas.indexOfFirst { it.startsWith("$clave:") }
             if (idx >= 0) lineas[idx] = "$clave:$valor" else lineas.add("$clave:$valor")
         }
         archivo.writeText(lineas.joinToString(System.lineSeparator()))
-        marcador.writeText("v1")
+        marcador.writeText(VERSION_PERFIL)
     }
 
     /**

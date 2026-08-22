@@ -238,16 +238,21 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
             explicacion = "Cuánta RAM puede usar Minecraft. Tu equipo tiene " +
                 "${"%.1f".format(ramTotalMb / 1024f)} GB: la recomendada es " +
                 "${"%.1f".format(memoriaRecomendadaMb / 1024f)} GB, que es lo que usa " +
-                "«Automática». Más no es mejor: el juego no aprovecha el exceso, " +
-                "pero Android sí cuenta esa reserva y cierra la partida cuando " +
-                "necesita memoria para otra app. Por encima de " +
-                "${"%.1f".format(limiteSeguroMb / 1024f)} GB el riesgo es alto.",
+                "«Automática». Más no es mejor, y está medido: el juego no " +
+                "aprovecha el exceso, pero tu equipo se queda sin memoria libre y " +
+                "empieza a comprimir la del juego, lo que gasta procesador, " +
+                "calienta y te baja los FPS. El máximo del deslizador " +
+                "(${"%.1f".format(limiteSeguroMb / 1024f)} GB) ya es el techo seguro.",
             valorTexto = if (memoriaMb == 0) "Automática" else "%.1f GB".format(memoriaMb / 1024f),
             valor = if (memoriaMb == 0) 1.8f else memoriaMb / 1024f,
-            rango = 1.4f..4f,
+            // El deslizador no llega al terreno peligroso: por encima del limite
+            // seguro el equipo empieza a comprimir memoria del juego y se pierde
+            // mas rendimiento del que se gana. Antes se podia elegir y el aviso
+            // llegaba tarde, cuando ya estabas jugando peor.
+            rango = 1.4f..(limiteSeguroMb / 1024f),
             alCambiar = { memoriaMb = if (it < 1.6f) 0 else (it * 1024).toInt() },
             alSoltar = {
-                if (memoriaMb > limiteSeguroMb) {
+                if (memoriaMb > memoriaRecomendadaMb) {
                     pedirConfirmacionMemoria = true
                 } else {
                     RepositorioAjustes.guardarMemoriaMb(contexto, memoriaMb)
@@ -261,13 +266,15 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
                     pedirConfirmacionMemoria = false
                     memoriaMb = memoriaConfirmada
                 },
-                title = { Text("Superas el límite seguro", color = OroClaro) },
+                title = { Text("Más de lo recomendado", color = OroClaro) },
                 text = {
                     Text(
-                        "Pediste %.1f GB y el límite seguro de tu equipo es %.1f GB. ".format(
-                            memoriaMb / 1024f, limiteSeguroMb / 1024f,
-                        ) + "Con tanta memoria reservada, Android puede cerrar el juego sin aviso " +
-                            "cuando el sistema la necesite. ¿Continuar igualmente?",
+                        "Pediste %.1f GB y lo recomendado para tu equipo es %.1f GB. ".format(
+                            memoriaMb / 1024f, memoriaRecomendadaMb / 1024f,
+                        ) + "Reservar de más no acelera el juego —no usa ni la mitad de lo " +
+                            "que ya tiene—, pero deja al sistema sin memoria libre: empieza " +
+                            "a comprimir la del juego, eso gasta procesador, calienta y te " +
+                            "baja los FPS. ¿Continuar igualmente?",
                         color = TextoSuave,
                     )
                 },
