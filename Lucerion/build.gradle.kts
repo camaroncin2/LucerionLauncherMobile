@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -15,6 +16,18 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Credenciales de firma: keystore.properties (ignorado por git) o variables de
+// entorno. Se leen aquí arriba porque dentro de android {} el nombre `java`
+// resuelve a la extensión de Gradle, no al paquete de la biblioteca estándar.
+val propsFirma = rootProject.file("keystore.properties")
+val credencialesFirma = Properties().apply {
+    if (propsFirma.exists()) propsFirma.inputStream().use { load(it) }
+}
+fun credencial(clave: String, env: String, porDefecto: String? = null): String? =
+    credencialesFirma.getProperty(clave) ?: System.getenv(env) ?: porDefecto
+
+val hayFirma = propsFirma.exists() || System.getenv("LUCERION_KEYSTORE_PASSWORD") != null
+
 android {
     namespace = "com.lucerion.launcher"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -27,9 +40,24 @@ android {
         versionName = "0.1.0"
     }
 
+    // Sin credenciales, el APK de release sale sin firmar y el resto de tareas
+    // sigue funcionando (nadie queda bloqueado por no tener la clave).
+    signingConfigs {
+        if (hayFirma) {
+            create("lucerion") {
+                storeFile = file(credencial("storeFile", "LUCERION_KEYSTORE_FILE", "../lucerion-release.jks")!!)
+                storePassword = credencial("storePassword", "LUCERION_KEYSTORE_PASSWORD")
+                keyAlias = credencial("keyAlias", "LUCERION_KEY_ALIAS", "lucerion")
+                keyPassword = credencial("keyPassword", "LUCERION_KEY_PASSWORD")
+                    ?: credencial("storePassword", "LUCERION_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hayFirma) signingConfig = signingConfigs.getByName("lucerion")
         }
         // Mismo nombre de buildType que usan los módulos del motor y el CI del
         // upstream (assemblefordebug): así la matriz de GitHub Actions compila

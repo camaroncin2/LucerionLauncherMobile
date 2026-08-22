@@ -35,3 +35,10 @@ AGENTS.md
 
 # ZCode 会话文件
 /.zcode/
+
+# Firma de release: la clave y sus credenciales NUNCA van al repositorio
+# (el repo es publico por GPL-3). Copia de seguridad: gestor de contrasenas.
+*.jks
+*.keystore
+keystore.properties
+LucerionMobile-*.apk
