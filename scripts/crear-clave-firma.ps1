@@ -74,11 +74,11 @@ try {
 Write-Host ""
 Write-Host "Clave creada en: $destino" -ForegroundColor Green
 Write-Host ""
-Write-Host "Para compilar el APK firmado, en CADA sesion de consola define la"
-Write-Host "contrasena (asi no queda escrita en ningun archivo):" -ForegroundColor Cyan
-Write-Host '  $env:LUCERION_KEYSTORE_PASSWORD = Read-Host -AsSecureString | ConvertFrom-SecureString -AsPlainText'
+Write-Host "Para compilar el APK firmado:" -ForegroundColor Cyan
+Write-Host "  .\scripts\compilar-apk.ps1"
 Write-Host ""
-Write-Host "Y luego:  .\scripts\compilar-apk.ps1"
+Write-Host "Te pedira esta contrasena de forma oculta. No queda escrita en ningun"
+Write-Host "archivo del repositorio."
 Write-Host ""
 Write-Host "Copia de seguridad: guarda lucerion-release.jks y su contrasena en tu"
 Write-Host "gestor de contrasenas. Sin ellos no podras publicar actualizaciones." -ForegroundColor Yellow
