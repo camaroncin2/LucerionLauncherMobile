@@ -31,10 +31,15 @@ class EditorControlesActivity : Activity() {
     private lateinit var lienzo: FrameLayout
     private lateinit var diseno: DisenoHud
     private var seleccionado: ControlHud? = null
+    private val velos = HashMap<ControlHud, View>()
     private lateinit var panelTitulo: TextView
     private lateinit var deslizador: SeekBar
     private lateinit var botonBorrar: Button
     private var escala = 1f
+
+    private companion object {
+        const val SELECCION = 0x2E5EC8FF
+    }
 
     override fun onCreate(estado: Bundle?) {
         super.onCreate(estado)
@@ -82,10 +87,10 @@ class EditorControlesActivity : Activity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun redibujar() {
-        // Quitar controles previos (todo lo que tenga ControlHud de tag).
         val aQuitar = (0 until lienzo.childCount).map { lienzo.getChildAt(it) }
             .filter { it.tag is ControlHud }
         aQuitar.forEach { lienzo.removeView(it) }
+        velos.clear()
 
         val w = lienzo.width
         val h = lienzo.height
@@ -97,33 +102,33 @@ class EditorControlesActivity : Activity() {
             // Capa transparente encima: captura el arrastre sin que el control
             // "funcione" dentro del editor.
             val velo = View(this)
-            velo.setBackgroundColor(if (c === seleccionado) 0x2E5EC8FF else Color.TRANSPARENT)
+            velo.setBackgroundColor(if (c === seleccionado) SELECCION else Color.TRANSPARENT)
             cont.addView(velo, FrameLayout.LayoutParams(tamPx, tamPx))
+            velos[c] = velo
 
+            // Posicion por propiedades x/y (composicion GPU): el arrastre es
+            // fluido porque NO se relayoutea nada por cada movimiento.
             val lp = FrameLayout.LayoutParams(tamPx, tamPx)
-            lp.leftMargin = (c.x * w - tamPx / 2f).toInt().coerceIn(0, maxOf(0, w - tamPx))
-            lp.topMargin = (c.y * h - tamPx / 2f).toInt().coerceIn(0, maxOf(0, h - tamPx))
             lienzo.addView(cont, lp)
+            cont.x = (c.x * w - tamPx / 2f).coerceIn(0f, maxOf(0f, (w - tamPx).toFloat()))
+            cont.y = (c.y * h - tamPx / 2f).coerceIn(0f, maxOf(0f, (h - tamPx).toFloat()))
 
-            var iniX = 0f
-            var iniY = 0f
+            var dX = 0f
+            var dY = 0f
             velo.setOnTouchListener { _, e ->
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         seleccionar(c)
-                        iniX = e.rawX - (cont.layoutParams as FrameLayout.LayoutParams).leftMargin
-                        iniY = e.rawY - (cont.layoutParams as FrameLayout.LayoutParams).topMargin
+                        dX = e.rawX - cont.x
+                        dY = e.rawY - cont.y
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val nlp = cont.layoutParams as FrameLayout.LayoutParams
-                        nlp.leftMargin = (e.rawX - iniX).toInt().coerceIn(0, maxOf(0, lienzo.width - nlp.width))
-                        nlp.topMargin = (e.rawY - iniY).toInt().coerceIn(0, maxOf(0, lienzo.height - nlp.height))
-                        cont.layoutParams = nlp
+                        cont.x = (e.rawX - dX).coerceIn(0f, maxOf(0f, (lienzo.width - cont.width).toFloat()))
+                        cont.y = (e.rawY - dY).coerceIn(0f, maxOf(0f, (lienzo.height - cont.height).toFloat()))
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        val nlp = cont.layoutParams as FrameLayout.LayoutParams
-                        c.x = (nlp.leftMargin + nlp.width / 2f) / lienzo.width
-                        c.y = (nlp.topMargin + nlp.height / 2f) / lienzo.height
+                        c.x = (cont.x + cont.width / 2f) / lienzo.width
+                        c.y = (cont.y + cont.height / 2f) / lienzo.height
                     }
                 }
                 true
@@ -140,7 +145,9 @@ class EditorControlesActivity : Activity() {
         }
         deslizador.progress = c.tam - 36
         botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
-        redibujar()
+        for ((control, velo) in velos) {
+            velo.setBackgroundColor(if (control === c) SELECCION else Color.TRANSPARENT)
+        }
     }
 
     // ── Panel de edición ─────────────────────────────────────────────────────
@@ -165,7 +172,22 @@ class EditorControlesActivity : Activity() {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progreso: Int, delUsuario: Boolean) {
                     if (delUsuario) {
-                        seleccionado?.let { it.tam = progreso + 36; redibujar() }
+                        // Redimensionar SOLO el seleccionado manteniendo su
+                        // centro: reconstruir todo por cada tick trababa.
+                        seleccionado?.let { c ->
+                            c.tam = progreso + 36
+                            val velo = velos[c] ?: return@let
+                            val cont = velo.parent as FrameLayout
+                            val tamPx = dp((c.tam * escala).toInt())
+                            val cx = cont.x + cont.width / 2f
+                            val cy = cont.y + cont.height / 2f
+                            (0 until cont.childCount).forEach { i ->
+                                cont.getChildAt(i).layoutParams = FrameLayout.LayoutParams(tamPx, tamPx)
+                            }
+                            cont.layoutParams = FrameLayout.LayoutParams(tamPx, tamPx)
+                            cont.x = cx - tamPx / 2f
+                            cont.y = cy - tamPx / 2f
+                        }
                     }
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) = Unit
@@ -198,30 +220,40 @@ class EditorControlesActivity : Activity() {
         addView(fila)
     }
 
-    /** Diálogo: etiqueta + tecla del catálogo → nuevo botón personalizado al centro. */
+    /**
+     * Alta en dos pasos (mezclar lista y campo en un mismo dialogo hace que
+     * Android ignore uno de los dos): 1) elegir la tecla, 2) etiqueta visible.
+     */
     private fun dialogoNuevoBoton() {
         val nombres = CatalogoTeclas.disponibles.map { it.first }.toTypedArray()
-        var indice = 1 // "B": el ejemplo canónico (mochila)
+        AlertDialog.Builder(this)
+            .setTitle("Nuevo botón — ¿qué tecla pulsará?")
+            .setItems(nombres) { _, cual -> dialogoEtiqueta(cual) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun dialogoEtiqueta(indice: Int) {
+        val (nombre, codigo) = CatalogoTeclas.disponibles[indice]
         val etiqueta = EditText(this).apply {
             hint = "Etiqueta visible (p. ej. Mochila)"
-            setText("B")
+            setText(nombre)
+            setSelection(text.length)
         }
         AlertDialog.Builder(this)
-            .setTitle("Nuevo botón — elige la tecla que pulsará")
-            .setSingleChoiceItems(nombres, indice) { _, cual -> indice = cual }
+            .setTitle("Tecla $nombre — etiqueta del botón")
             .setView(etiqueta)
             .setPositiveButton("Añadir") { _, _ ->
-                val (nombre, codigo) = CatalogoTeclas.disponibles[indice]
-                diseno.controles.add(
-                    ControlHud(
-                        id = "tecla_${System.currentTimeMillis()}",
-                        tipo = "tecla",
-                        x = 0.5f, y = 0.5f, tam = 56,
-                        etiqueta = etiqueta.text.toString().ifBlank { nombre },
-                        tecla = codigo,
-                    ),
+                val nuevo = ControlHud(
+                    id = "tecla_${System.nanoTime()}",
+                    tipo = "tecla",
+                    x = 0.5f, y = 0.45f, tam = 56,
+                    etiqueta = etiqueta.text.toString().ifBlank { nombre },
+                    tecla = codigo,
                 )
+                diseno.controles.add(nuevo)
                 redibujar()
+                seleccionar(nuevo)
             }
             .setNegativeButton("Cancelar", null)
             .show()

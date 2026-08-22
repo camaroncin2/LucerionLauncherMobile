@@ -65,6 +65,20 @@ fun AjustesScreen(alVolver: () -> Unit) {
     var reparacionPedida by remember { mutableStateOf(false) }
     var apartado by remember { mutableStateOf<String?>(null) }
 
+    // Datos reales del equipo para orientar la memoria: recomendada = 40 %
+    // de la RAM; limite seguro = 50 % (mas alla, Android empieza a matar la
+    // app bajo presion de memoria).
+    val ramTotalMb = remember {
+        val am = contexto.getSystemService(android.content.Context.ACTIVITY_SERVICE)
+            as android.app.ActivityManager
+        val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        (info.totalMem / 1048576L).toInt()
+    }
+    val memoriaRecomendadaMb = (ramTotalMb * 40 / 100).coerceIn(2048, 6144)
+    val limiteSeguroMb = ramTotalMb / 2
+    var memoriaConfirmada by remember { mutableIntStateOf(RepositorioAjustes.memoriaMb(contexto)) }
+    var pedirConfirmacionMemoria by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -164,15 +178,68 @@ fun AjustesScreen(alVolver: () -> Unit) {
         if (apartado == "rendimiento") {
         FilaDeslizador(
             titulo = "Memoria del juego",
-            explicacion = "Cuánta RAM puede usar Minecraft. «Automática» calcula el 40 % de la " +
-                "RAM del equipo (recomendado). Subirla ayuda con muchos mods; pasarse puede " +
-                "hacer que Android cierre la app.",
-            valorTexto = if (memoriaMb == 0) "Automática" else "${memoriaMb / 1024f} GB".replace(".0 ", " "),
+            explicacion = "Cuánta RAM puede usar Minecraft. Tu equipo tiene " +
+                "${"%.1f".format(ramTotalMb / 1024f)} GB: la recomendada es " +
+                "${"%.1f".format(memoriaRecomendadaMb / 1024f)} GB (40 %, lo que usa " +
+                "«Automática») y el límite seguro es ${"%.1f".format(limiteSeguroMb / 1024f)} GB " +
+                "(50 %). Por encima de ese límite, Android puede cerrar la app en plena partida.",
+            valorTexto = if (memoriaMb == 0) "Automática" else "%.1f GB".format(memoriaMb / 1024f),
             valor = if (memoriaMb == 0) 1.8f else memoriaMb / 1024f,
             rango = 1.8f..6f,
             alCambiar = { memoriaMb = if (it < 2f) 0 else (it * 1024).toInt() },
-            alSoltar = { RepositorioAjustes.guardarMemoriaMb(contexto, memoriaMb) },
+            alSoltar = {
+                if (memoriaMb > limiteSeguroMb) {
+                    pedirConfirmacionMemoria = true
+                } else {
+                    RepositorioAjustes.guardarMemoriaMb(contexto, memoriaMb)
+                    memoriaConfirmada = memoriaMb
+                }
+            },
         )
+        if (pedirConfirmacionMemoria) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {
+                    pedirConfirmacionMemoria = false
+                    memoriaMb = memoriaConfirmada
+                },
+                title = { Text("Superas el límite seguro", color = OroClaro) },
+                text = {
+                    Text(
+                        "Pediste %.1f GB y el límite seguro de tu equipo es %.1f GB. ".format(
+                            memoriaMb / 1024f, limiteSeguroMb / 1024f,
+                        ) + "Con tanta memoria reservada, Android puede cerrar el juego sin aviso " +
+                            "cuando el sistema la necesite. ¿Continuar igualmente?",
+                        color = TextoSuave,
+                    )
+                },
+                confirmButton = {
+                    Text(
+                        "SÍ, USAR ESA MEMORIA",
+                        color = Oro,
+                        modifier = Modifier
+                            .clickable {
+                                RepositorioAjustes.guardarMemoriaMb(contexto, memoriaMb)
+                                memoriaConfirmada = memoriaMb
+                                pedirConfirmacionMemoria = false
+                            }
+                            .padding(8.dp),
+                    )
+                },
+                dismissButton = {
+                    Text(
+                        "VOLVER AL VALOR ANTERIOR",
+                        color = TextoSuave,
+                        modifier = Modifier
+                            .clickable {
+                                memoriaMb = memoriaConfirmada
+                                pedirConfirmacionMemoria = false
+                            }
+                            .padding(8.dp),
+                    )
+                },
+                containerColor = Bg3,
+            )
+        }
         FilaInterruptor(
             titulo = "Sincronía vertical (vsync)",
             explicacion = "Sincroniza cada cuadro con la pantalla. Reduce el parpadeo y las " +
