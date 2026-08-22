@@ -40,7 +40,15 @@ class ProcessService : Service() {
         startForeground(1, buildNotification())
         val command = intent.extras!!.getStringArray("command")
         val java = intent.extras!!.getInt("java")
-        val jre = "jre$java"
+        // Lucerion solo empaqueta jre21: si el pedido (8/11/17) no esta
+        // instalado, se usa directamente el 21 en vez de fallar y obligar a
+        // la cadena de reintentos del instalador a recorrer todos los JRE.
+        val pedido = "jre$java"
+        val jre = if (File(applicationContext.getDir("runtime", 0), "java/$pedido").exists()) {
+            pedido
+        } else {
+            "jre21"
+        }
         // Log en el almacenamiento de la app: /sdcard/FCL/log exige el permiso
         // "todos los archivos" (Lucerion no lo pide) y la escritura fallida
         // dejaba el instalador sin rastro alguno.
