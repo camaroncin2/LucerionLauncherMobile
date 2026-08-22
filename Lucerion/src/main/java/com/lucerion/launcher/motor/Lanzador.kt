@@ -107,14 +107,20 @@ object Lanzador {
             }
 
             val puente: FCLBridge = lanzador.launch()
-            puente.setGameDir(repo.getRunDirectory(version.id).absolutePath)
-            puente.setJava("21")
-            puente.setRenderer(MotorLucerion.rendererZink.name)
-            puente.setScaleFactor(1.0)
-            puente.setHasTouchController(false)
-            CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
 
-            JuegoActivity.puente = puente
-            actividad.startActivity(Intent(actividad, JuegoActivity::class.java))
+            // El resto va en el hilo principal: CallbackBridge se inicializa con
+            // el Choreographer de Android (exige un Looper), y FCL hace este
+            // mismo bloque en Schedulers.androidUIThread().
+            withContext(Dispatchers.Main) {
+                puente.setGameDir(repo.getRunDirectory(version.id).absolutePath)
+                puente.setJava("21")
+                puente.setRenderer(MotorLucerion.rendererZink.name)
+                puente.setScaleFactor(1.0)
+                puente.setHasTouchController(false)
+                CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
+
+                JuegoActivity.puente = puente
+                actividad.startActivity(Intent(actividad, JuegoActivity::class.java))
+            }
         }
 }
