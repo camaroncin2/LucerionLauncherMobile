@@ -17,4 +17,14 @@
     <string name="home_ajustes">Ajustes</string>
     <string name="home_ajustes_detalle">Rendimiento, memoria y opciones avanzadas — cada una con su explicación.</string>
     <string name="home_version">Versión %1$s</string>
+
+    <!-- Pantalla de cuenta -->
+    <string name="cuenta_titulo">Tu cuenta</string>
+    <string name="cuenta_volver">← Volver</string>
+    <string name="cuenta_explicacion">Este es el nombre con el que entrarás a Cretania y con el que te verán los demás jugadores. El servidor te pedirá registrar una contraseña la primera vez, dentro del juego.</string>
+    <string name="cuenta_apodo_label">Apodo</string>
+    <string name="cuenta_reglas">De 3 a 16 caracteres: letras sin acentos, números y guion bajo (_). Sin espacios.</string>
+    <string name="cuenta_guardar">GUARDAR APODO</string>
+    <string name="cuenta_microsoft_titulo">Cuenta Microsoft</string>
+    <string name="cuenta_microsoft_detalle">Opcional: sirve para tu skin oficial y para entrar a otros servidores. Para jugar en Cretania no hace falta. Disponible próximamente.</string>
 </resources>

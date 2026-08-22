@@ -53,16 +53,20 @@ import com.lucerion.launcher.ui.theme.TextoSuave
  *    hacer scroll para lo importante.
  */
 @Composable
-fun HomeScreen(versionApp: String) {
+fun HomeScreen(
+    versionApp: String,
+    apodo: String?,
+    alAbrirCuenta: () -> Unit,
+) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Bg2, Bg))),
     ) {
         if (maxWidth > maxHeight) {
-            HomeHorizontal(versionApp)
+            HomeHorizontal(versionApp, apodo, alAbrirCuenta)
         } else {
-            HomeVertical(versionApp)
+            HomeVertical(versionApp, apodo, alAbrirCuenta)
         }
     }
 }
@@ -70,7 +74,7 @@ fun HomeScreen(versionApp: String) {
 // ── Distribución vertical ────────────────────────────────────────────────────
 
 @Composable
-private fun HomeVertical(versionApp: String) {
+private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -84,7 +88,7 @@ private fun HomeVertical(versionApp: String) {
         Spacer(Modifier.height(28.dp))
         BloqueJugar()
         Spacer(Modifier.height(36.dp))
-        TarjetasSecciones()
+        TarjetasSecciones(apodo, alAbrirCuenta)
         Spacer(Modifier.height(40.dp))
         PieVersion(versionApp)
     }
@@ -93,7 +97,7 @@ private fun HomeVertical(versionApp: String) {
 // ── Distribución horizontal ──────────────────────────────────────────────────
 
 @Composable
-private fun HomeHorizontal(versionApp: String) {
+private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Panel de marca: fijo, sin scroll — es identidad, no contenido.
         Column(
@@ -130,7 +134,7 @@ private fun HomeHorizontal(versionApp: String) {
         ) {
             BloqueJugar()
             Spacer(Modifier.height(24.dp))
-            TarjetasSecciones()
+            TarjetasSecciones(apodo, alAbrirCuenta)
         }
     }
 }
@@ -168,13 +172,13 @@ private fun BloqueJugar() {
 }
 
 @Composable
-private fun TarjetasSecciones() {
+private fun TarjetasSecciones(apodo: String?, alAbrirCuenta: () -> Unit) {
     Column {
         TarjetaSeccion(
             titulo = stringResource(R.string.home_cuenta),
-            valorActual = stringResource(R.string.home_cuenta_sin),
+            valorActual = apodo ?: stringResource(R.string.home_cuenta_sin),
             explicacion = stringResource(R.string.home_cuenta_detalle),
-            alPulsar = { /* fase siguiente: pantalla de cuenta */ },
+            alPulsar = alAbrirCuenta,
         )
         Spacer(Modifier.height(14.dp))
         TarjetaSeccion(
