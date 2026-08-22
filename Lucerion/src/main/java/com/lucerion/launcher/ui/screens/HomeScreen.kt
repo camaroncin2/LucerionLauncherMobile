@@ -51,8 +51,8 @@ import com.lucerion.launcher.ui.theme.TextoSuave
  *
  * Dos distribuciones:
  *  · Vertical: pila única (marca arriba, CTA al centro, secciones abajo).
- *  · Horizontal: dos paneles — marca a la izquierda, acción y secciones a la
- *    derecha — porque en apaisado la pila desperdicia el ancho y obliga a
+ *  · Horizontal: dos paneles — marca y JUGAR a la izquierda, el personaje a
+ *    la derecha — porque en apaisado la pila desperdicia el ancho y obliga a
  *    hacer scroll para lo importante.
  */
 @Composable
@@ -101,7 +101,9 @@ private fun HomeVertical(versionApp: String, alJugar: () -> Unit) {
 @Composable
 private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
-        // Panel de marca: fijo, sin scroll — es identidad, no contenido.
+        // Panel de marca y acción: identidad arriba y JUGAR debajo, ocupando
+        // el hueco que antes quedaba vacío. Sin scroll: nada debe empujar al
+        // botón fuera de la vista.
         Column(
             modifier = Modifier
                 .weight(0.42f)
@@ -113,6 +115,8 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
             CabeceraMarca()
             Spacer(Modifier.height(14.dp))
             SeparadorRemaches()
+            Spacer(Modifier.height(26.dp))
+            BloqueJugar(alJugar)
             Spacer(Modifier.weight(1f))
             PieVersion(versionApp)
         }
@@ -125,18 +129,15 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Oro, Color.Transparent))),
         )
 
-        // Panel de acción: aquí sí puede haber scroll si crecen las secciones.
+        // Panel del personaje: solo la skin, con todo el ancho para lucirse.
         Column(
             modifier = Modifier
                 .weight(0.58f)
                 .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 28.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            BloqueJugar(alJugar)
-            Spacer(Modifier.height(18.dp))
-            BloqueSkinInicio(alturaVista = 240)
+            BloqueSkinInicio(alturaVista = 300)
         }
     }
 }
