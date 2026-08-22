@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copia de seguridad de Android 11 y anteriores.
+
+  Al declarar <include>, Android respalda SOLO lo listado. Sin este archivo
+  intentaba respaldar la carpeta entera de la app —con la instancia de varios
+  gigabytes—, pasarse del limite de 25 MB y, en consecuencia, no respaldar
+  nada en absoluto.
+
+  Va la configuracion (diseno del HUD, ajustes, apodo, skin elegida): unos
+  pocos KB que valen para que al reinstalar todo vuelva a su sitio.
+
+  NO va "lucerion-cuenta": ahi vive el token de sesion de Microsoft y no tiene
+  por que viajar a la nube. Volver a iniciar sesion es barato.
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="lucerion.xml" />
+</full-backup-content>

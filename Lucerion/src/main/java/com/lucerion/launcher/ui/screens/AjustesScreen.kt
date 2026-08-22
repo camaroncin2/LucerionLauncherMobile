@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -39,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lucerion.launcher.R
+import com.lucerion.launcher.data.EspacioJuego
 import com.lucerion.launcher.data.RepositorioAjustes
 import com.lucerion.launcher.motor.InstaladorJuego
 import com.lucerion.launcher.ui.theme.Bg
@@ -93,6 +96,24 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
     val memoriaRecomendadaMb = (ramTotalMb * 22 / 100).coerceIn(1536, 2560)
     val limiteSeguroMb = ramTotalMb * 30 / 100
     var memoriaConfirmada by remember { mutableIntStateOf(RepositorioAjustes.memoriaMb(contexto)) }
+
+    // Espacio: medir recorre miles de archivos, asi que va fuera del hilo
+    // principal y se recalcula cuando algo lo cambia.
+    var bytesJuego by remember { mutableStateOf(0L) }
+    var bytesInternos by remember { mutableStateOf(0L) }
+    var calculandoEspacio by remember { mutableStateOf(true) }
+    var recalcularEspacio by remember { mutableIntStateOf(0) }
+    var confirmando by remember { mutableStateOf<String?>(null) }
+    var avisoEspacio by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(recalcularEspacio) {
+        calculandoEspacio = true
+        val medido = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            EspacioJuego.bytesJuego(contexto) to EspacioJuego.bytesInternos(contexto)
+        }
+        bytesJuego = medido.first
+        bytesInternos = medido.second
+        calculandoEspacio = false
+    }
     var pedirConfirmacionMemoria by remember { mutableStateOf(false) }
 
     // A 892 dp de ancho el texto salía a ~109 caracteres por línea: se lee
@@ -124,7 +145,7 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
                 "rendimiento" -> "Rendimiento"
                 "graficos" -> "Gráficos avanzados"
                 "acerca" -> "Acerca de"
-                else -> "Partida"
+                else -> "Partida y espacio"
             },
             // headlineMedium y no displayLarge: displayLarge es el estilo del
             // logotipo (44 sp con mucho tracking) y partía "Gráficos avanzados".
@@ -143,7 +164,7 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
                 Triple("Controles", "Palanca o cruceta, tamaño global y el editor visual para mover, agrandar y añadir botones.", "controles"),
                 Triple("Rendimiento", "Memoria del juego, sincronía vertical y presentación de video.", "rendimiento"),
                 Triple("Gráficos avanzados", "Interruptores experimentales del driver para cazar artefactos visuales.", "graficos"),
-                Triple("Partida", "Reparar la instalación del juego sin perder lo descargado.", "partida"),
+                Triple("Partida y espacio", "Cuánto ocupa Cretania, cómo liberar espacio y reparar la instalación.", "partida"),
                 Triple("Acerca de", "Qué es Lucerion, versión instalada y aviso legal.", "acerca"),
             )
             if (apaisado) {
@@ -337,6 +358,84 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
         }
 
         if (apartado == "partida") {
+        Tarjeta {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Espacio ocupado", style = MaterialTheme.typography.titleMedium, color = OroClaro)
+                Text(
+                    "Todo lo que descarga Lucerion vive dentro de la app, así que al " +
+                        "desinstalarla Android lo borra solo y no queda nada suelto en el " +
+                        "teléfono. Aquí puedes recuperar ese espacio sin desinstalar nada.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave,
+                )
+                Text(
+                    if (calculandoEspacio) "Midiendo…"
+                    else "Juego descargado: ${EspacioJuego.enPalabras(bytesJuego)}  ·  " +
+                        "Motor y ajustes: ${EspacioJuego.enPalabras(bytesInternos)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OroClaro,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Borrar el juego conserva tus ajustes, el diseño del HUD y tu cuenta; " +
+                        "se vuelve a descargar en la próxima entrada. Restablecer todo deja " +
+                        "la app como recién instalada.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave,
+                )
+                if (avisoEspacio != null) {
+                    Text(avisoEspacio!!, style = MaterialTheme.typography.bodyMedium, color = OroClaro)
+                }
+                Spacer(Modifier.height(2.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BotonSecundario("BORRAR EL JUEGO") { confirmando = "juego" }
+                    BotonSecundario("RESTABLECER TODO") { confirmando = "todo" }
+                }
+            }
+        }
+
+        // Confirmacion explicita: las dos acciones tiran abajo mas de un giga
+        // y no hay vuelta atras.
+        if (confirmando != null) {
+            val borrarTodo = confirmando == "todo"
+            AlertDialog(
+                onDismissRequest = { confirmando = null },
+                title = {
+                    Text(if (borrarTodo) "¿Restablecer todo?" else "¿Borrar el juego descargado?")
+                },
+                text = {
+                    Text(
+                        if (borrarTodo) {
+                            "Se borra el juego descargado Y toda tu configuración: diseño del " +
+                                "HUD, ajustes, apodo y sesión. La app queda como recién instalada."
+                        } else {
+                            "Se liberan ${EspacioJuego.enPalabras(bytesJuego)}. Tus ajustes, el " +
+                                "diseño del HUD y tu cuenta se conservan; el juego se descarga " +
+                                "de nuevo la próxima vez que entres."
+                        },
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val hecho = if (borrarTodo) EspacioJuego.restablecerTodo(contexto)
+                        else EspacioJuego.borrarJuego(contexto)
+                        avisoEspacio = if (hecho) {
+                            "Listo. Espacio liberado."
+                        } else {
+                            "Hay una partida abierta: ciérrala antes de borrar."
+                        }
+                        confirmando = null
+                        recalcularEspacio++
+                    }) { Text(if (borrarTodo) "RESTABLECER" else "BORRAR") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmando = null }) {
+                        Text("CANCELAR")
+                    }
+                },
+            )
+        }
+
         Tarjeta {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Reparar instalación del juego", style = MaterialTheme.typography.titleMedium, color = OroClaro)

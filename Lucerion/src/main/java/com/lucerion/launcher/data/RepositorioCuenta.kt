@@ -15,6 +15,17 @@ object RepositorioCuenta {
     private const val PREFS = "lucerion"
     private const val CLAVE_APODO = "apodo"
 
+    /**
+     * La sesión de Microsoft vive en SU PROPIO archivo.
+     *
+     * La copia de seguridad de Android incluye o excluye archivos enteros, no
+     * claves sueltas. Mientras el token compartía archivo con los ajustes, o
+     * se respaldaba todo —y el token acababa en la nube— o no se respaldaba
+     * nada. Separado, la configuración se puede restaurar al reinstalar y el
+     * token se queda en el teléfono, que es donde tiene que estar.
+     */
+    private const val PREFS_SESION = "lucerion-cuenta"
+
     fun leerApodo(context: Context): String? =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(CLAVE_APODO, null)
@@ -34,15 +45,29 @@ object RepositorioCuenta {
     private const val CLAVE_MICROSOFT = "cuenta_microsoft"
 
     fun guardarCuentaMicrosoft(context: Context, datos: Map<Any, Any>) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context.getSharedPreferences(PREFS_SESION, Context.MODE_PRIVATE)
             .edit()
             .putString(CLAVE_MICROSOFT, com.google.gson.Gson().toJson(datos))
             .apply()
     }
 
+    /**
+     * Traslada una sesión guardada por una versión anterior, que la dejaba
+     * junto a los ajustes. Sin esto, quien ya había iniciado sesión aparecía
+     * de golpe como desconectado tras actualizar.
+     */
+    private fun migrarSesionAntigua(context: Context) {
+        val viejas = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val crudo = viejas.getString(CLAVE_MICROSOFT, null) ?: return
+        context.getSharedPreferences(PREFS_SESION, Context.MODE_PRIVATE)
+            .edit().putString(CLAVE_MICROSOFT, crudo).apply()
+        viejas.edit().remove(CLAVE_MICROSOFT).apply()
+    }
+
     @Suppress("UNCHECKED_CAST")
     fun leerCuentaMicrosoft(context: Context): Map<Any, Any>? {
-        val crudo = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        migrarSesionAntigua(context)
+        val crudo = context.getSharedPreferences(PREFS_SESION, Context.MODE_PRIVATE)
             .getString(CLAVE_MICROSOFT, null) ?: return null
         return runCatching {
             com.google.gson.Gson().fromJson(crudo, Map::class.java) as Map<Any, Any>
@@ -50,6 +75,9 @@ object RepositorioCuenta {
     }
 
     fun olvidarCuentaMicrosoft(context: Context) {
+        context.getSharedPreferences(PREFS_SESION, Context.MODE_PRIVATE)
+            .edit().remove(CLAVE_MICROSOFT).apply()
+        // Por si quedaba en el archivo antiguo de una version previa.
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().remove(CLAVE_MICROSOFT).apply()
     }

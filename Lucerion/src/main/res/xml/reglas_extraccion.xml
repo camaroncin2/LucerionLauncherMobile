@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 y posteriores. Mismo criterio que reglas_copia.xml: solo la
+  configuracion, nunca la instancia (gigabytes) ni el token de Microsoft.
+
+  device-transfer es el paso directo de movil a movil: ahi tampoco viaja la
+  instancia, que se vuelve a descargar sola en la primera entrada.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="lucerion.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="lucerion.xml" />
+    </device-transfer>
+</data-extraction-rules>
