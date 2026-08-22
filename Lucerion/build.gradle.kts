@@ -50,6 +50,18 @@ android {
         buildConfig = true // BuildConfig.VERSION_NAME se muestra en la Home
     }
 
+    sourceSets {
+        getByName("main") {
+            // Los runtimes del motor (JREs, LWJGL, cacio, JNA) y los assets que
+            // FCLCore lee del classpath viven en el modulo FCL. Se comparten por
+            // sourceSet en vez de duplicar ~200 MB en el repo: mismo APK final.
+            assets.srcDir("../FCL/src/main/assets")
+            // jreAssets filtrados: solo el JRE 21 (MC 1.21 no usa otro).
+            // Los cuatro JRE completos sumarian ~180 MB de APK.
+            assets.srcDir(layout.buildDirectory.dir("jreAssetsFiltrados"))
+        }
+    }
+
     packaging {
         jniLibs {
             // El motor nativo lo exige (mismos motivos que el módulo FCL):
@@ -59,6 +71,14 @@ android {
         }
     }
 }
+
+// Copia al build solo el JRE que el juego necesita (patron FilterJreAssets de FCL).
+val filtrarJreAssets = tasks.register<Sync>("filtrarJreAssets") {
+    from("../FCL/src/main/jreAssets")
+    include("app_runtime/java/jre21/**")
+    into(layout.buildDirectory.dir("jreAssetsFiltrados"))
+}
+tasks.named("preBuild") { dependsOn(filtrarJreAssets) }
 
 kotlin {
     compilerOptions {
@@ -78,4 +98,16 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
     implementation(libs.gson) // parseo del manifest de Lucerion
+
+    // ── Nativos del motor (renderers y audio; mismos .aar que usa FCL) ──────
+    implementation(files("../FCL/libs/kopper-zink-release.aar"))      // Zink (GL 4.6 sobre Vulkan)
+    implementation(files("../FCL/libs/NG-GL4ES-release.aar"))
+    implementation(files("../FCL/libs/openal-soft-release.aar"))
+    implementation(files("../FCL/libs/spirv-cross-natives.aar"))
+    implementation(files("../FCL/libs/lwjgl-3.3.3-natives-release.aar"))
+    implementation(files("../FCL/libs/lwjgl-3.4.1-natives-release.aar"))
+
+    // ── Descompresion de los runtimes (tar.xz de los JRE) ───────────────────
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
 }

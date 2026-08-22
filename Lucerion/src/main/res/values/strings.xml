@@ -42,4 +42,12 @@
     <string name="sync_error_titulo">No se pudo</string>
     <string name="sync_reintentar">REINTENTAR</string>
     <string name="sync_volver">← Volver</string>
+
+    <!-- Motor del juego -->
+    <string name="motor_titulo">Componentes del juego</string>
+    <string name="motor_explicacion">Una sola vez: el launcher instala Java 21 y los componentes gráficos que Minecraft necesita para correr en tu teléfono. Vienen dentro de la app — no descarga nada.</string>
+    <string name="motor_instalar">INSTALAR COMPONENTES</string>
+    <string name="motor_preparando">Instalando: %1$s…</string>
+    <string name="motor_listo">Componentes del juego listos ✓</string>
+    <string name="motor_fallo">No se pudieron instalar los componentes: %1$s</string>
 </resources>

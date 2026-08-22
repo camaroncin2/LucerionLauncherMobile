@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.lucerion.launcher.R
 import com.lucerion.launcher.data.lucerion.SincronizadorModpack
 import com.lucerion.launcher.data.lucerion.SincronizadorModpack.Estado
+import com.lucerion.launcher.motor.MotorLucerion
 import com.lucerion.launcher.ui.theme.AmbarCta1
 import com.lucerion.launcher.ui.theme.AmbarCta2
 import com.lucerion.launcher.ui.theme.Bg
@@ -184,13 +185,8 @@ fun SincronizarScreen(alVolver: () -> Unit) {
                     )
                     Spacer(Modifier.height(12.dp))
                     BarraProgreso(indeterminada = false, fraccion = 1f)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.sync_completo_detalle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextoSuave,
-                        textAlign = TextAlign.Center,
-                    )
+                    Spacer(Modifier.height(28.dp))
+                    BloqueMotor()
                 }
 
                 is Estado.Fallo -> {
@@ -211,6 +207,84 @@ fun SincronizarScreen(alVolver: () -> Unit) {
                         ambito.launch { sincronizador.analizar() }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Estado de los componentes del motor (runtimes del juego). Se instalan una
+ * vez desde los assets del APK; despues esta seccion solo confirma que estan.
+ */
+@Composable
+private fun BloqueMotor() {
+    val actividad = LocalContext.current as android.app.Activity
+    val estadoMotor by MotorLucerion.estado.collectAsState()
+    val ambito = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        if (estadoMotor is MotorLucerion.Estado.SinPreparar) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                MotorLucerion.estaListo(actividad)
+            }
+        }
+    }
+
+    Text(
+        text = stringResource(R.string.motor_titulo),
+        style = MaterialTheme.typography.titleMedium,
+        color = OroClaro,
+    )
+    Spacer(Modifier.height(8.dp))
+    when (val m = estadoMotor) {
+        is MotorLucerion.Estado.SinPreparar -> {
+            Text(
+                text = stringResource(R.string.motor_explicacion),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+            BotonDorado(texto = stringResource(R.string.motor_instalar)) {
+                ambito.launch { MotorLucerion.preparar(actividad) }
+            }
+        }
+
+        is MotorLucerion.Estado.Preparando -> {
+            Text(
+                text = stringResource(R.string.motor_preparando, m.paso),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave,
+            )
+            Spacer(Modifier.height(12.dp))
+            BarraProgreso(indeterminada = true, fraccion = 0f)
+        }
+
+        is MotorLucerion.Estado.Listo -> {
+            Text(
+                text = stringResource(R.string.motor_listo),
+                style = MaterialTheme.typography.titleMedium,
+                color = OroClaro,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.sync_completo_detalle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        is MotorLucerion.Estado.Fallo -> {
+            Text(
+                text = stringResource(R.string.motor_fallo, m.motivo),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            BotonDorado(texto = stringResource(R.string.sync_reintentar)) {
+                ambito.launch { MotorLucerion.preparar(actividad) }
             }
         }
     }
