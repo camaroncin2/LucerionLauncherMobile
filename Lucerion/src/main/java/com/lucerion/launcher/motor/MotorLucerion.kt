@@ -5,6 +5,8 @@ import com.mio.data.Renderer
 import com.tungsten.fclauncher.plugins.DriverPlugin
 import com.tungsten.fclauncher.plugins.RendererPlugin
 import com.tungsten.fclauncher.utils.FCLPath
+import com.tungsten.fclcore.download.DefaultCacheRepository
+import com.tungsten.fclcore.util.CacheRepository
 import com.tungsten.fclcore.util.Logging
 import com.tungsten.fclcore.util.io.FileUtils
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +60,14 @@ object MotorLucerion {
         FCLPath.CONTROLLER_DIR = File(base, "controles").apply { mkdirs() }.absolutePath
         FCLPath.SHARE_DIR = File(base, "compartido").apply { mkdirs() }.absolutePath
         Logging.start(Paths.get(FCLPath.LOG_DIR))
+
+        // Cache global de descargas del motor. FetchTask usa la INSTANCIA
+        // GLOBAL (CacheRepository.getInstance()) y su indice de ETags solo se
+        // crea en changeDirectory(): sin esto, toda descarga del motor muere
+        // con NPE (FCL lo hace en Settings.java:50).
+        val cache = DefaultCacheRepository(Paths.get(File(activity.cacheDir, "motor-cache").absolutePath))
+        cache.changeDirectory(Paths.get(File(activity.cacheDir, "motor-cache").absolutePath))
+        CacheRepository.setInstance(cache)
     }
 
     /** ¿Los runtimes ya están instalados y al día? Barato: compara archivos de versión. */

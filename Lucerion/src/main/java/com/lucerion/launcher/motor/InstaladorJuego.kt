@@ -58,8 +58,11 @@ object InstaladorJuego {
             _estado.value = Estado.Instalando("Preparando el repositorio del juego")
             val repo = repositorio(dirInstancia)
             val proveedor = MojangDownloadProvider()
+            // La instancia global la fija MotorLucerion.cargarRutas; reutilizarla
+            // evita dos indices de cache pisandose.
             val dependencias = DefaultDependencyManager(
-                repo, proveedor, DefaultCacheRepository(Paths.get(cacheDir.absolutePath)),
+                repo, proveedor,
+                com.tungsten.fclcore.util.CacheRepository.getInstance() as DefaultCacheRepository,
             )
 
             _estado.value = Estado.Instalando("Buscando NeoForge ${pack.loaderVersion} para ${pack.minecraft}")
