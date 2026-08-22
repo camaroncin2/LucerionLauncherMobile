@@ -143,7 +143,14 @@ object InstaladorJuego {
             // porcentaje se etiqueta como aproximado en la UI.
             val bytes = java.util.concurrent.atomic.AtomicLong(0)
             val hechas = java.util.concurrent.atomic.AtomicInteger(0)
-            lateinit var ejecutor: com.tungsten.fclcore.task.TaskExecutor
+            val ejecutor = tarea.executor(object : com.tungsten.fclcore.task.TaskListener() {
+                override fun onFinished(t: com.tungsten.fclcore.task.Task<*>) {
+                    hechas.incrementAndGet()
+                }
+            })
+            // El oyente se registra DESPUES de existir el ejecutor: el timer del
+            // motor dispara cada segundo y una referencia sin inicializar en ese
+            // hilo tumba la app entera (no hay quien capture ahi).
             val oyenteVelocidad = java.util.function.Consumer<com.tungsten.fclcore.task.FetchTask.SpeedEvent> { ev ->
                 val total = bytes.addAndGet(ev.speed.toLong())
                 _estado.value = Estado.Instalando(
@@ -153,12 +160,6 @@ object InstaladorJuego {
             com.tungsten.fclcore.task.FetchTask.speedEvent
                 .channel(com.tungsten.fclcore.task.FetchTask.SpeedEvent::class.java)
                 .registerWeak(oyenteVelocidad)
-
-            ejecutor = tarea.executor(object : com.tungsten.fclcore.task.TaskListener() {
-                override fun onFinished(t: com.tungsten.fclcore.task.Task<*>) {
-                    hechas.incrementAndGet()
-                }
-            })
             val ok = ejecutor.test()
             if (!ok) {
                 val motivo = generateSequence<Throwable>(ejecutor.exception) { it.cause }
