@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
@@ -107,7 +108,9 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
                 text = stringResource(R.string.sync_volver),
                 style = MaterialTheme.typography.titleMedium,
                 color = OroClaro,
-                modifier = Modifier.clickable(onClick = salir),
+                modifier = Modifier
+                    .clickable(onClick = salir)
+                    .padding(vertical = 14.dp, horizontal = 8.dp),
             )
         }
         Spacer(Modifier.height(18.dp * aire))
@@ -196,7 +199,10 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
                         text = stringResource(R.string.sync_cancelar),
                         style = MaterialTheme.typography.titleMedium,
                         color = CreateNaranja,
-                        modifier = Modifier.clickable {
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .padding(vertical = 14.dp, horizontal = 16.dp)
+                            .clickable {
                             // Esperar a que la descarga termine de cancelarse
                             // antes de re-analizar: si no, el "Inactivo" tardío
                             // pisaba el resultado y la pantalla se quedaba
@@ -403,7 +409,7 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
                     modifier = Modifier
                         .align(Alignment.End)
                         .clickable { diagnostico = null }
-                        .padding(top = 4.dp),
+                        .padding(vertical = 14.dp, horizontal = 8.dp),
                 )
             }
         }

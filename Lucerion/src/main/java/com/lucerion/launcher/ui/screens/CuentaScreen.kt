@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -75,6 +77,9 @@ fun CuentaScreen(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Bg2, Bg)))
             .verticalScroll(rememberScrollState())
+            // Con el teclado abierto en apaisado quedan ~165 dp: sin esto el
+            // campo del apodo podia quedar debajo del teclado.
+            .imePadding()
             .padding(horizontal = 24.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -84,7 +89,9 @@ fun CuentaScreen(
                 text = stringResource(R.string.cuenta_volver),
                 style = MaterialTheme.typography.titleMedium,
                 color = OroClaro,
-                modifier = Modifier.clickable(onClick = alVolver),
+                modifier = Modifier
+                    .clickable(onClick = alVolver)
+                    .padding(vertical = 14.dp, horizontal = 8.dp),
             )
             Spacer(Modifier.weight(1f))
         }
@@ -297,9 +304,11 @@ private fun BloqueMicrosoft() {
 private fun BotonBordeCuenta(texto: String, alPulsar: () -> Unit) {
     Box(
         modifier = Modifier
+            .heightIn(min = 48.dp)
             .border(1.dp, Oro, RoundedCornerShape(10.dp))
             .clickable(onClick = alPulsar)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(texto, style = MaterialTheme.typography.labelLarge, color = OroClaro)
     }

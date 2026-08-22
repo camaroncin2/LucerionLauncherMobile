@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,7 +69,8 @@ fun SplashScreen(alTerminar: () -> Unit) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.radialGradient(listOf(Bg2, Bg))),
+            .background(Brush.radialGradient(listOf(Bg2, Bg)))
+            .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.safeDrawing),
         contentAlignment = Alignment.Center,
     ) {
         if (maxWidth > maxHeight) {
@@ -77,9 +80,7 @@ fun SplashScreen(alTerminar: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
             ) {
                 EmblemaLucerion(angulo)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MarcaSplash()
-                }
+                MarcaSplash()
             }
         } else {
             Column(
@@ -95,6 +96,13 @@ fun SplashScreen(alTerminar: () -> Unit) {
 
 @Composable
 private fun MarcaSplash() {
+    // Contenedor propio: sueltos, los dos textos heredaban el espaciado de
+    // cada rama (20 dp en vertical, 8 en apaisado) y la marca se veia
+    // distinta segun como sostuvieras el telefono.
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
     Text(
         text = stringResource(R.string.home_titulo),
         style = MaterialTheme.typography.displayLarge,
@@ -105,6 +113,7 @@ private fun MarcaSplash() {
         style = MaterialTheme.typography.bodyMedium,
         color = TextoSuave,
     )
+    }
 }
 
 /**

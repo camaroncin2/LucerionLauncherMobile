@@ -180,13 +180,20 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     // ── HUD reconstruible ────────────────────────────────────────────────────
 
-    private fun anchoPantalla() = maxOf(
-        resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels,
-    )
+    /**
+     * Medidas de la VENTANA real, no de la pantalla fisica.
+     *
+     * Antes se leia displayMetrics con maxOf/minOf: al guardar se dividia por
+     * el tamano de la raiz y al leer por el de la pantalla, asi que cada
+     * ciclo de edicion corria un poco los controles. Y en una ventana mas
+     * alta que ancha (pantalla dividida) los ejes se intercambiaban y el HUD
+     * entero aterrizaba sobre el eje equivocado.
+     */
+    private fun anchoPantalla() =
+        if (raiz.width > 0) raiz.width else resources.displayMetrics.widthPixels
 
-    private fun altoPantalla() = minOf(
-        resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels,
-    )
+    private fun altoPantalla() =
+        if (raiz.height > 0) raiz.height else resources.displayMetrics.heightPixels
 
     /**
      * Crea los controles a partir del diseno guardado. Se puede llamar tantas

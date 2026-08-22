@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -110,7 +111,9 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
             text = if (apartado == null) "← Volver" else "← Ajustes",
             style = MaterialTheme.typography.titleMedium,
             color = OroClaro,
-            modifier = Modifier.clickable { if (apartado == null) alVolver() else apartado = null },
+            modifier = Modifier
+                .clickable { if (apartado == null) alVolver() else apartado = null }
+                .padding(vertical = 14.dp, horizontal = 8.dp),
         )
         Spacer(Modifier.height(14.dp))
         Text(
@@ -494,6 +497,7 @@ private fun FilaDeslizador(
                 onValueChange = alCambiar,
                 onValueChangeFinished = alSoltar,
                 valueRange = rango,
+                modifier = Modifier.widthIn(max = 420.dp),
                 colors = SliderDefaults.colors(
                     thumbColor = Oro,
                     activeTrackColor = Oro,
@@ -531,7 +535,8 @@ private fun FilaOpciones(
                                 RoundedCornerShape(8.dp),
                             )
                             .clickable { alElegir(opcion) }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
                     ) {
                         Text(
                             opcion,
@@ -549,9 +554,11 @@ private fun FilaOpciones(
 private fun BotonSecundario(texto: String, alPulsar: () -> Unit) {
     Box(
         modifier = Modifier
+            .heightIn(min = 48.dp)
             .border(1.dp, Oro, RoundedCornerShape(10.dp))
             .clickable(onClick = alPulsar)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(texto, style = MaterialTheme.typography.labelLarge, color = OroClaro)
     }

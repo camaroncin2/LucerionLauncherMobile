@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -98,7 +104,15 @@ fun BarraInferior(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                     ) { alElegir(s) }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 14.dp, vertical = 13.dp)
+                    // Sin esto, los iconos son dibujos sin nombre: quien use
+                    // lector de pantalla no sabe a que seccion va.
+                    .semantics {
+                        contentDescription = s.titulo
+                        role = Role.Tab
+                        if (activa) selected = true
+                    },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconoSeccion(s, tinte, 22.dp)
@@ -159,7 +173,8 @@ fun BarraLateral(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                 ) { desplegada = !desplegada }
-                .padding(12.dp),
+                .padding(13.dp)
+                .semantics { contentDescription = "Mostrar u ocultar los nombres de las secciones" },
         ) {
             IconoMenu(OroClaro, 22.dp)
         }
@@ -181,8 +196,16 @@ fun BarraLateral(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                     ) { alElegir(s) }
-                    .padding(horizontal = 12.dp, vertical = 12.dp)
-                    .width(if (desplegada) 124.dp else 22.dp),
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 12.dp, vertical = 13.dp)
+                    // 22 dp pedidos dentro de una barra de 64 dp no entraban y
+                    // el icono salia 2 dp mas chico que la hamburguesa.
+                    .width(if (desplegada) 124.dp else 20.dp)
+                    .semantics {
+                        contentDescription = s.titulo
+                        role = Role.Tab
+                        if (activa) selected = true
+                    },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconoSeccion(s, tinte, 22.dp)
