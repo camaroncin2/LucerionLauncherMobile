@@ -83,6 +83,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var barraEdicion: LinearLayout? = null
     private var tituloEdicion: android.widget.TextView? = null
     private var sliderEdicion: android.widget.SeekBar? = null
+    private var sliderOpacidadEdicion: android.widget.SeekBar? = null
+    private var botonBorrarEdicion: android.widget.Button? = null
     private var seleccionEdicion: com.lucerion.launcher.data.ControlHud? = null
     private var botonMenu: View? = null
 
@@ -192,6 +194,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
         fun coloca(v: View, c: com.lucerion.launcher.data.ControlHud) {
             val tamPx = dpc(c.tam)
+            v.alpha = c.opacidad.coerceIn(0.15f, 1f)
             val lp = FrameLayout.LayoutParams(tamPx, tamPx)
             lp.leftMargin = (c.x * anchoP - tamPx / 2f).toInt().coerceIn(0, maxOf(0, anchoP - tamPx))
             lp.topMargin = (c.y * altoP - tamPx / 2f).toInt().coerceIn(0, maxOf(0, altoP - tamPx))
@@ -426,7 +429,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         modoEdicion = true
         seleccionEdicion = null
         velosEdicion.clear()
+        crearVelosEdicion()
+        mostrarBarraEdicion()
+    }
 
+    /** Capa arrastrable sobre cada control (y lo desconecta del juego). */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun crearVelosEdicion() {
         for ((c, vista) in controlesEnPantalla) {
             val lp = vista.layoutParams as FrameLayout.LayoutParams
             val velo = View(this).apply { setBackgroundColor(0x332E9BD6) }
@@ -437,6 +446,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     it.topMargin = lp.topMargin
                 },
             )
+            velo.x = vista.x
+            velo.y = vista.y
             velosEdicion[c.id] = velo
 
             var dX = 0f
@@ -464,7 +475,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 true
             }
         }
-        mostrarBarraEdicion()
     }
 
     private fun etiquetaDe(c: com.lucerion.launcher.data.ControlHud): String = when {
@@ -475,8 +485,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     private fun seleccionarEnEdicion(c: com.lucerion.launcher.data.ControlHud) {
         seleccionEdicion = c
-        tituloEdicion?.text = etiquetaDe(c) + "  ·  " + c.tam + " dp"
+        actualizarTituloEdicion(c)
         sliderEdicion?.progress = c.tam - 36
+        sliderOpacidadEdicion?.progress = ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85)
+        botonBorrarEdicion?.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
         for ((id, velo) in velosEdicion) {
             velo.setBackgroundColor(if (id == c.id) 0x662E9BD6 else 0x332E9BD6)
         }
@@ -496,6 +508,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         barra.addView(titulo)
         tituloEdicion = titulo
 
+        // Tamano
+        barra.addView(
+            android.widget.TextView(this).apply {
+                text = "Tamano"
+                setTextColor(0xB3C8D0E0.toInt())
+                textSize = 11f
+            },
+        )
         val slider = android.widget.SeekBar(this).apply {
             max = 184 // 36..220 dp
             setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
@@ -503,7 +523,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     if (!delUsuario) return
                     val c = seleccionEdicion ?: return
                     c.tam = progreso + 36
-                    titulo.text = etiquetaDe(c) + "  ·  " + c.tam + " dp"
+                    actualizarTituloEdicion(c)
                     redimensionarEnEdicion(c)
                 }
                 override fun onStartTrackingTouch(sb: android.widget.SeekBar?) = Unit
@@ -513,18 +533,64 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         barra.addView(slider, LinearLayout.LayoutParams(dp(240), LinearLayout.LayoutParams.WRAP_CONTENT))
         sliderEdicion = slider
 
+        // Opacidad: lo justo para que el control se vea sin tapar el mundo.
+        barra.addView(
+            android.widget.TextView(this).apply {
+                text = "Opacidad"
+                setTextColor(0xB3C8D0E0.toInt())
+                textSize = 11f
+            },
+        )
+        val sliderOpacidad = android.widget.SeekBar(this).apply {
+            max = 85 // 15..100 %
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: android.widget.SeekBar?, progreso: Int, delUsuario: Boolean) {
+                    if (!delUsuario) return
+                    val c = seleccionEdicion ?: return
+                    c.opacidad = (progreso + 15) / 100f
+                    actualizarTituloEdicion(c)
+                    controlesEnPantalla.firstOrNull { it.first === c }?.second?.alpha = c.opacidad
+                }
+                override fun onStartTrackingTouch(sb: android.widget.SeekBar?) = Unit
+                override fun onStopTrackingTouch(sb: android.widget.SeekBar?) = Unit
+            })
+        }
+        barra.addView(sliderOpacidad, LinearLayout.LayoutParams(dp(240), LinearLayout.LayoutParams.WRAP_CONTENT))
+        sliderOpacidadEdicion = sliderOpacidad
+
         val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fila.addView(
             android.widget.Button(this).apply {
+                text = "+ BOTON"
+                textSize = 11f
+                setOnClickListener { dialogoNuevoBotonEnJuego() }
+            },
+        )
+        val borrar = android.widget.Button(this).apply {
+            text = "BORRAR"
+            textSize = 11f
+            visibility = View.GONE
+            setOnClickListener {
+                val c = seleccionEdicion ?: return@setOnClickListener
+                if (c.tipo != "tecla") return@setOnClickListener
+                diseno.controles.remove(c)
+                seleccionEdicion = null
+                rehacerEdicion()
+            }
+        }
+        fila.addView(borrar)
+        botonBorrarEdicion = borrar
+        fila.addView(
+            android.widget.Button(this).apply {
                 text = "GUARDAR"
-                textSize = 12f
+                textSize = 11f
                 setOnClickListener { salirModoEdicion(guardar = true) }
             },
         )
         fila.addView(
             android.widget.Button(this).apply {
                 text = "DESCARTAR"
-                textSize = 12f
+                textSize = 11f
                 setOnClickListener { salirModoEdicion(guardar = false) }
             },
         )
@@ -539,6 +605,62 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             ),
         )
         barraEdicion = barra
+    }
+
+    private fun actualizarTituloEdicion(c: com.lucerion.launcher.data.ControlHud) {
+        tituloEdicion?.text = etiquetaDe(c) + "  ·  " + c.tam + " dp  ·  " +
+            (c.opacidad * 100).toInt() + " %"
+    }
+
+    /**
+     * Alta de boton personalizado sin salir de la partida: primero la tecla
+     * (dos pasos, porque un dialogo con lista Y campo de texto hace que
+     * Android ignore uno de los dos), luego la etiqueta visible.
+     */
+    private fun dialogoNuevoBotonEnJuego() {
+        val nombres = com.lucerion.launcher.data.CatalogoTeclas.disponibles.map { it.first }.toTypedArray()
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Nuevo boton - que tecla pulsara?")
+            .setItems(nombres) { _, cual -> dialogoEtiquetaEnJuego(cual) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun dialogoEtiquetaEnJuego(indice: Int) {
+        val (nombre, codigo) = com.lucerion.launcher.data.CatalogoTeclas.disponibles[indice]
+        val campo = EditText(this).apply {
+            hint = "Etiqueta visible (p. ej. Mochila)"
+            setText(nombre)
+            setSelection(text.length)
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Tecla " + nombre + " - etiqueta del boton")
+            .setView(campo)
+            .setPositiveButton("Anadir") { _, _ ->
+                val nuevo = com.lucerion.launcher.data.ControlHud(
+                    id = "tecla_" + System.nanoTime(),
+                    tipo = "tecla",
+                    x = 0.5f, y = 0.45f, tam = 56,
+                    etiqueta = campo.text.toString().ifBlank { nombre },
+                    tecla = codigo,
+                )
+                diseno.controles.add(nuevo)
+                rehacerEdicion()
+                seleccionarEnEdicion(nuevo)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    /** Rehace HUD y capas de edicion tras anadir o borrar un control. */
+    private fun rehacerEdicion() {
+        velosEdicion.values.forEach { raiz.removeView(it) }
+        velosEdicion.clear()
+        construirHud()
+        crearVelosEdicion()
+        botonBorrarEdicion?.visibility =
+            if (seleccionEdicion?.tipo == "tecla") View.VISIBLE else View.GONE
+        barraEdicion?.bringToFront()
     }
 
     /** Redimensiona en vivo el control elegido (y su capa) manteniendo el centro. */
@@ -569,6 +691,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         barraEdicion = null
         tituloEdicion = null
         sliderEdicion = null
+        sliderOpacidadEdicion = null
+        botonBorrarEdicion = null
         seleccionEdicion = null
 
         if (guardar) {

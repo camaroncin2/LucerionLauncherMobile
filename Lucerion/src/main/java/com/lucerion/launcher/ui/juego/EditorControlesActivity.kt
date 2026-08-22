@@ -38,6 +38,7 @@ class EditorControlesActivity : Activity() {
     private lateinit var panelTitulo: TextView
     private lateinit var deslizador: SeekBar
     private lateinit var etiquetaTam: TextView
+    private lateinit var deslizadorOpacidad: SeekBar
     private lateinit var botonBorrar: Button
     private var escala = 1f
 
@@ -105,6 +106,7 @@ class EditorControlesActivity : Activity() {
             val cont = FrameLayout(this)
             cont.tag = c
             cont.addView(vistaDe(c), FrameLayout.LayoutParams(tamPx, tamPx))
+            cont.alpha = c.opacidad.coerceIn(0.15f, 1f)
             // Capa transparente encima: captura el arrastre sin que el control
             // "funcione" dentro del editor.
             val velo = View(this)
@@ -168,6 +170,7 @@ class EditorControlesActivity : Activity() {
             else -> c.id.replaceFirstChar { it.uppercase() }
         }
         deslizador.progress = c.tam - 36
+        deslizadorOpacidad.progress = ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85)
         mostrarTam(c)
         botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
         for (control in diseno.controles) {
@@ -188,7 +191,7 @@ class EditorControlesActivity : Activity() {
     }
 
     private fun mostrarTam(c: ControlHud) {
-        etiquetaTam.text = "Tamaño: ${porcentajeDe(c)} %  ·  ${c.tam} dp"
+        etiquetaTam.text = "Tamaño: ${porcentajeDe(c)} %  ·  ${c.tam} dp  ·  opacidad ${(c.opacidad * 100).toInt()} %"
         etiquetasTam[c.id]?.text = "${porcentajeDe(c)} %"
     }
 
@@ -239,6 +242,26 @@ class EditorControlesActivity : Activity() {
             })
         }
         addView(deslizador, LinearLayout.LayoutParams(dp(230), LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        addView(TextView(context).apply {
+            text = "Opacidad del control:"
+            setTextColor(0xB3FFFFFF.toInt())
+        })
+        deslizadorOpacidad = SeekBar(context).apply {
+            max = 85 // 15..100 %
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, progreso: Int, delUsuario: Boolean) {
+                    if (!delUsuario) return
+                    val c = seleccionado ?: return
+                    c.opacidad = (progreso + 15) / 100f
+                    mostrarTam(c)
+                    (velos[c.id]?.parent as? FrameLayout)?.alpha = c.opacidad
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) = Unit
+                override fun onStopTrackingTouch(sb: SeekBar?) = Unit
+            })
+        }
+        addView(deslizadorOpacidad, LinearLayout.LayoutParams(dp(230), LinearLayout.LayoutParams.WRAP_CONTENT))
 
         val fila = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         fun accion(texto: String, alPulsar: () -> Unit): Button = Button(context).apply {

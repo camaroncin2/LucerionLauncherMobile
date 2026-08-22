@@ -56,7 +56,11 @@ import com.lucerion.launcher.ui.theme.TextoSuave
 fun SkinScreen() {
     val contexto = LocalContext.current
 
+    // Sin skin propia se muestra la clasica: asi es como te ven en el
+    // servidor mientras no elijas una.
     var bitmap by remember { mutableStateOf<Bitmap?>(RepositorioSkin.cargarBitmap(contexto)) }
+    val propia = bitmap != null
+    val mostrada = bitmap ?: com.lucerion.launcher.ui.skin.SkinPorDefecto.bitmap()
     var delgada by remember { mutableStateOf(RepositorioSkin.modeloDelgado(contexto)) }
     var vista3D by remember { mutableStateOf(RepositorioSkin.vista3D(contexto)) }
     var aviso by remember { mutableStateOf<String?>(null) }
@@ -94,16 +98,8 @@ fun SkinScreen() {
             color = Bg3,
             shape = RoundedCornerShape(16.dp),
         ) {
-            val bmp = bitmap
+            val bmp = mostrada
             when {
-                bmp == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Todavía no elegiste una skin.\nSin skin, entras con el aspecto por defecto.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextoSuave,
-                    )
-                }
-
                 vista3D -> AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx -> VistaSkin3D(ctx) },
@@ -128,14 +124,18 @@ fun SkinScreen() {
                 }
             }
         }
-        if (bitmap != null && vista3D) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Arrastra sobre el modelo para girarlo e inclinarlo.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextoSuave.copy(alpha = 0.7f),
-            )
-        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (propia) {
+                if (vista3D) "Arrastra sobre el modelo para girarlo e inclinarlo."
+                else "Textura de tu skin."
+            } else {
+                "Aspecto clásico: es el que usas mientras no elijas una skin propia." +
+                    if (vista3D) " Arrastra para girarlo." else ""
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextoSuave.copy(alpha = 0.7f),
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -145,11 +145,11 @@ fun SkinScreen() {
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BotonBorde(if (bitmap == null) "ELEGIR SKIN" else "CAMBIAR SKIN") {
+            BotonBorde(if (!propia) "ELEGIR SKIN" else "CAMBIAR SKIN") {
                 aviso = null
                 elegir.launch(arrayOf("image/png"))
             }
-            if (bitmap != null) {
+            if (propia) {
                 BotonBorde("QUITAR") {
                     RepositorioSkin.quitar(contexto)
                     bitmap = null

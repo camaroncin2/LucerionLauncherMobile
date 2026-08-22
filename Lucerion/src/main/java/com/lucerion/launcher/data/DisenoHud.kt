@@ -18,6 +18,8 @@ data class ControlHud(
     var tam: Int,
     val etiqueta: String? = null, // solo tipo "tecla"
     val tecla: Int = 0,           // FCLKeycodes, solo tipo "tecla"
+    /** Transparencia del control en el juego: 0.15 (casi invisible) a 1. */
+    var opacidad: Float = 0.85f,
 )
 
 data class DisenoHud(val controles: MutableList<ControlHud>)
