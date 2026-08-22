@@ -136,9 +136,16 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             )
         } else {
             raiz.addView(
-                PalancaTactil(this) { adelante, atras, izquierda, derecha ->
-                    aplicarMovimiento(adelante, atras, izquierda, derecha)
-                },
+                PalancaTactil(
+                    this,
+                    alCambiar = { adelante, atras, izquierda, derecha ->
+                        aplicarMovimiento(adelante, atras, izquierda, derecha)
+                    },
+                    alCorrer = { corriendo ->
+                        // Sprint de Bedrock: doble-toque adelante = CTRL mantenido.
+                        puente?.pushEventKey(FCLKeycodes.KEY_LEFTCTRL, 0, corriendo)
+                    },
+                ),
                 FrameLayout.LayoutParams(
                     dp(170), dp(170),
                     Gravity.BOTTOM or Gravity.START,
@@ -154,7 +161,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         )
         raiz.addView(
             // Golpear/romper vive SOLO aqui: mantener = clic izquierdo
-            // sostenido; la pantalla ya no golpea nunca.
+            // sostenido; la pantalla ya no golpea nunca. Arrastrar SIN soltar
+            // sigue moviendo la camara (un solo pulgar rompe y mira, como en
+            // Bedrock — el otro queda libre para el stick).
             BotonTactil(
                 this, BotonTactil.Glifo.GOLPEAR,
                 alPresionar = {
@@ -162,6 +171,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 },
                 alSoltar = {
                     puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), false)
+                },
+                alArrastrar = { dx, dy ->
+                    if (cursorAgarrado) {
+                        cursorX += dx
+                        cursorY += dy
+                        puente?.pushEventPointer(cursorX, cursorY)
+                    }
                 },
             ),
             FrameLayout.LayoutParams(
@@ -374,6 +390,27 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var ultimoY = 0f
     private var inicioToque = 0L
     private var seMovio = false
+    private var toqueLargoHecho = false
+
+    // Toques largos estilo Bedrock:
+    //  · En menus/inventario: mantener = clic DERECHO (dividir stack a la
+    //    mitad, colocar de a uno) — como mantener en Bedrock.
+    //  · En juego sobre la hotbar: mantener = soltar ese item (slot + Q).
+    private val toqueLargo = Runnable {
+        val p = puente ?: return@Runnable
+        if (seMovio) return@Runnable
+        if (!cursorAgarrado) {
+            toqueLargoHecho = true
+            clic(p, LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt())
+        } else {
+            val slot = slotHotbarEn(ultimoX, ultimoY)
+            if (slot != null) {
+                toqueLargoHecho = true
+                tecla(p, slot)           // primero elegirlo…
+                tecla(p, FCLKeycodes.KEY_Q) // …y soltarlo (tecla() encadena solo)
+            }
+        }
+    }
 
     private fun manejarToque(evento: MotionEvent) {
         val p = puente ?: return
@@ -381,6 +418,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             MotionEvent.ACTION_DOWN -> {
                 inicioToque = System.currentTimeMillis()
                 seMovio = false
+                toqueLargoHecho = false
                 ultimoX = evento.x
                 ultimoY = evento.y
                 if (!cursorAgarrado) {
@@ -388,12 +426,16 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     cursorY = evento.y
                     p.pushEventPointer(cursorX, cursorY)
                 }
+                handler.postDelayed(toqueLargo, 420)
             }
 
             MotionEvent.ACTION_MOVE -> {
                 val dx = evento.x - ultimoX
                 val dy = evento.y - ultimoY
-                if (dx * dx + dy * dy > UMBRAL_MOVIMIENTO_PX2) seMovio = true
+                if (dx * dx + dy * dy > UMBRAL_MOVIMIENTO_PX2) {
+                    seMovio = true
+                    handler.removeCallbacks(toqueLargo)
+                }
                 ultimoX = evento.x
                 ultimoY = evento.y
                 if (cursorAgarrado) {
@@ -407,8 +449,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                handler.removeCallbacks(toqueLargo)
                 val duracion = System.currentTimeMillis() - inicioToque
-                if (!seMovio && duracion < 300) {
+                if (!toqueLargoHecho && !seMovio && duracion < 300) {
                     if (!cursorAgarrado) {
                         clic(p, LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt())
                     } else {
@@ -465,10 +508,11 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
             override fun onTextChanged(s: CharSequence?, inicio: Int, antes: Int, nuevos: Int) {
+                if (reiniciandoTexto) return
                 val p = puente ?: return
                 if (nuevos > antes) {
                     s?.subSequence(inicio + antes, inicio + nuevos)?.forEach { c ->
-                        if (c == '\n') tecla(p, FCLKeycodes.KEY_ENTER)
+                        if (c == '\n') enviarYLimpiar(p)
                         else p.pushEventChar(c)
                     }
                 } else if (antes > nuevos) {
@@ -476,20 +520,35 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 }
             }
             override fun afterTextChanged(s: Editable?) {
+                if (reiniciandoTexto) return
                 if (s != null && s.isEmpty()) {
-                    entradaTexto.setText(" ")
-                    entradaTexto.setSelection(1)
+                    reiniciarBarraTexto()
                 }
             }
         })
         setOnEditorActionListener { _, accion, _ ->
             if (accion == EditorInfo.IME_ACTION_DONE || accion == EditorInfo.IME_ACTION_SEND) {
-                puente?.let { tecla(it, FCLKeycodes.KEY_ENTER) }
+                puente?.let { enviarYLimpiar(it) }
                 true
             } else {
                 false
             }
         }
+    }
+
+    private var reiniciandoTexto = false
+
+    /** ENTER al juego y barra limpia: el mensaje ya se fue, no debe quedar escrito. */
+    private fun enviarYLimpiar(p: FCLBridge) {
+        tecla(p, FCLKeycodes.KEY_ENTER)
+        reiniciarBarraTexto()
+    }
+
+    private fun reiniciarBarraTexto() {
+        reiniciandoTexto = true
+        entradaTexto.setText(" ")
+        entradaTexto.setSelection(1)
+        reiniciandoTexto = false
     }
 
     // La cola de entrada del juego DESCARTA press+release mandados en el mismo

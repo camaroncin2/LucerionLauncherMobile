@@ -23,7 +23,15 @@ class BotonTactil(
     private val conmutador: Boolean = false,
     private val alPresionar: () -> Unit,
     private val alSoltar: () -> Unit = {},
+    /**
+     * Arrastre mientras se mantiene (dx, dy): permite p. ej. seguir moviendo
+     * la cámara con el MISMO dedo que sostiene GOLPEAR, como en Bedrock.
+     */
+    private val alArrastrar: ((Float, Float) -> Unit)? = null,
 ) : View(context) {
+
+    private var arrastreX = 0f
+    private var arrastreY = 0f
 
     enum class Glifo {
         FLECHA_ARRIBA, FLECHA_ABAJO, FLECHA_IZQUIERDA, FLECHA_DERECHA,
@@ -47,6 +55,8 @@ class BotonTactil(
     override fun onTouchEvent(evento: MotionEvent): Boolean {
         when (evento.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                arrastreX = evento.rawX
+                arrastreY = evento.rawY
                 if (conmutador) {
                     activo = !activo
                     if (activo) alPresionar() else alSoltar()
@@ -55,6 +65,13 @@ class BotonTactil(
                     alPresionar()
                 }
                 invalidate()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (alArrastrar != null) {
+                    alArrastrar.invoke(evento.rawX - arrastreX, evento.rawY - arrastreY)
+                    arrastreX = evento.rawX
+                    arrastreY = evento.rawY
+                }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (!conmutador) {

@@ -19,11 +19,33 @@ import kotlin.math.sin
 class PalancaTactil(
     context: Context,
     private val alCambiar: (adelante: Boolean, atras: Boolean, izquierda: Boolean, derecha: Boolean) -> Unit,
+    /** Sprint estilo Bedrock: doble-toque hacia adelante lo activa; soltar lo corta. */
+    private val alCorrer: (Boolean) -> Unit = {},
 ) : View(context) {
 
     private var perillaX = 0f
     private var perillaY = 0f
     private var activa = false
+    private var adelanteActivo = false
+    private var finAdelante = 0L
+    private var corriendo = false
+
+    private fun actualizarSprint(adelante: Boolean) {
+        val ahora = android.os.SystemClock.uptimeMillis()
+        if (adelante && !adelanteActivo) {
+            if (ahora - finAdelante < 280 && !corriendo) {
+                corriendo = true
+                alCorrer(true)
+            }
+        } else if (!adelante && adelanteActivo) {
+            finAdelante = ahora
+            if (corriendo) {
+                corriendo = false
+                alCorrer(false)
+            }
+        }
+        adelanteActivo = adelante
+    }
 
     private val pintaBase = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -58,6 +80,7 @@ class PalancaTactil(
                 perillaY = dy
                 if (distancia < radio * 0.22f) {
                     // Zona muerta: perilla casi centrada, sin movimiento.
+                    actualizarSprint(false)
                     alCambiar(false, false, false, false)
                 } else {
                     val angulo = atan2(-dy, dx) // y de pantalla crece hacia abajo
@@ -65,6 +88,7 @@ class PalancaTactil(
                     val atras = sin(angulo) < -0.38f
                     val derecha = cos(angulo) > 0.38f
                     val izquierda = cos(angulo) < -0.38f
+                    actualizarSprint(adelante)
                     alCambiar(adelante, atras, izquierda, derecha)
                 }
                 invalidate()
@@ -73,6 +97,7 @@ class PalancaTactil(
                 activa = false
                 perillaX = 0f
                 perillaY = 0f
+                actualizarSprint(false)
                 alCambiar(false, false, false, false)
                 invalidate()
             }

@@ -70,8 +70,11 @@ object Lanzador {
             // de cualquier Os.setenv (por eso nunca surtio efecto, ni en la
             // Fase 0 con FCL). El unico canal que gana es el env personalizado
             // (prefs "launcher"/"env"), que se aplica al final.
+            // FIFO en el WSI de Mesa: fuerza presentacion sincronizada al
+            // vblank en la capa Vulkan (Turnip) — remata las franjas que el
+            // vsync de GL redujo pero no elimino.
             actividad.getSharedPreferences("launcher", Context.MODE_PRIVATE)
-                .edit().putString("env", "FORCE_VSYNC=true").apply()
+                .edit().putString("env", "FORCE_VSYNC=true\nMESA_VK_WSI_PRESENT_MODE=fifo").apply()
 
             val repo = InstaladorJuego.repositorio(dirInstancia)
             val version = MaintainTask.maintain(
