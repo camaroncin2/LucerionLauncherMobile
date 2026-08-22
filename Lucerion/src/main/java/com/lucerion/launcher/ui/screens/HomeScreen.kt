@@ -129,7 +129,8 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Oro, Color.Transparent))),
         )
 
-        // Panel del personaje: solo la skin, con todo el ancho para lucirse.
+        // Panel del personaje: solo la skin, ocupando el alto disponible para
+        // que los botones queden siempre visibles sin desplazar nada.
         Column(
             modifier = Modifier
                 .weight(0.58f)
@@ -137,7 +138,7 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
                 .padding(horizontal = 28.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            BloqueSkinInicio(alturaVista = 300)
+            BloqueSkinInicio(expandible = true, modifier = Modifier.fillMaxHeight())
         }
     }
 }

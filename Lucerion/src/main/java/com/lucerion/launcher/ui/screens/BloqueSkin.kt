@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,7 +44,13 @@ import com.lucerion.launcher.ui.theme.TextoSuave
  * la sección Skin; aquí solo lo que se usa a diario.
  */
 @Composable
-fun BloqueSkinInicio(alturaVista: Int = 260) {
+fun BloqueSkinInicio(
+    alturaVista: Int = 260,
+    /** Ocupa el alto disponible en vez de una altura fija: en apaisado evita
+     *  que los botones queden fuera de la pantalla. */
+    expandible: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val contexto = LocalContext.current
 
     var bitmap by remember { mutableStateOf<Bitmap?>(RepositorioSkin.cargarBitmap(contexto)) }
@@ -62,20 +69,26 @@ fun BloqueSkinInicio(alturaVista: Int = 260) {
     }
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(12.dp)),
         color = Bg3,
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = if (expandible) {
+                Modifier.fillMaxHeight().padding(14.dp)
+            } else {
+                Modifier.padding(14.dp)
+            },
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(alturaVista.dp),
+                if (expandible) {
+                    Modifier.fillMaxWidth().weight(1f)
+                } else {
+                    Modifier.fillMaxWidth().height(alturaVista.dp)
+                },
             ) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),

@@ -69,6 +69,12 @@ fun SkinScreen() {
         }
     }
 
+    // En apaisado hay poco alto: un recuadro fijo de 340 dejaba los ajustes
+    // fuera de la vista y el modelo se comia el gesto de desplazar.
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val apaisado = config.screenWidthDp > config.screenHeightDp
+    val altoVista = if (apaisado) 200.dp else 340.dp
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -88,7 +94,7 @@ fun SkinScreen() {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(340.dp)
+                .height(altoVista)
                 .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(16.dp)),
             color = Bg3,
             shape = RoundedCornerShape(16.dp),

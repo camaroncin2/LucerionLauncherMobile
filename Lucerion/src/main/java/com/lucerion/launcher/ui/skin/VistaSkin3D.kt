@@ -256,28 +256,61 @@ class VistaSkin3D(context: Context) : View(context) {
 
     private var ultimoX = 0f
     private var ultimoY = 0f
+    private var inicioX = 0f
+    private var inicioY = 0f
+    private var girando = false
+    private var gestoDecidido = false
 
+    /**
+     * El gesto se reparte con la pantalla: arrastrar en horizontal gira el
+     * modelo, arrastrar en vertical desplaza la página. Sin esto el visor se
+     * quedaba con TODOS los toques y, en apaisado, no se podía bajar para ver
+     * los botones.
+     */
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(evento: MotionEvent): Boolean {
         if (!interactivo) return false
         when (evento.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                parent?.requestDisallowInterceptTouchEvent(true)
+                inicioX = evento.x
+                inicioY = evento.y
                 ultimoX = evento.x
                 ultimoY = evento.y
+                girando = false
+                gestoDecidido = false
             }
+
             MotionEvent.ACTION_MOVE -> {
-                giro += (evento.x - ultimoX) * 0.01f
-                // La inclinación se limita: mirar el modelo desde arriba o
-                // abajo del todo lo deja irreconocible.
-                inclinacion = (inclinacion + (evento.y - ultimoY) * 0.006f)
-                    .coerceIn(-0.6f, 0.6f)
+                if (!gestoDecidido) {
+                    val dx = Math.abs(evento.x - inicioX)
+                    val dy = Math.abs(evento.y - inicioY)
+                    val umbral = 12f * resources.displayMetrics.density
+                    if (dx > umbral || dy > umbral) {
+                        gestoDecidido = true
+                        girando = dx >= dy
+                        // Reclamar el gesto solo si es un giro; si no, que la
+                        // página se desplace con normalidad.
+                        parent?.requestDisallowInterceptTouchEvent(girando)
+                        if (!girando) return false
+                    }
+                }
+                if (girando) {
+                    giro += (evento.x - ultimoX) * 0.01f
+                    // La inclinación se limita: mirar el modelo desde arriba o
+                    // abajo del todo lo deja irreconocible.
+                    inclinacion = (inclinacion + (evento.y - ultimoY) * 0.006f)
+                        .coerceIn(-0.6f, 0.6f)
+                    invalidate()
+                }
                 ultimoX = evento.x
                 ultimoY = evento.y
-                invalidate()
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 parent?.requestDisallowInterceptTouchEvent(false)
+                girando = false
+                gestoDecidido = false
+            }
         }
         return true
     }
