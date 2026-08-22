@@ -10,12 +10,6 @@
     <string name="home_subtitulo">Launcher oficial de Cretania</string>
     <string name="home_jugar">JUGAR CRETANIA</string>
     <string name="home_jugar_detalle">Entra al servidor con todo listo: el launcher instala y actualiza el modpack por ti.</string>
-    <string name="home_estado_preparando">Preparando…</string>
-    <string name="home_cuenta">Cuenta</string>
-    <string name="home_cuenta_sin">Sin apodo elegido</string>
-    <string name="home_cuenta_detalle">Elige el apodo con el que entrarás al servidor. La cuenta Microsoft es opcional.</string>
-    <string name="home_ajustes">Ajustes</string>
-    <string name="home_ajustes_detalle">Rendimiento, memoria y opciones avanzadas — cada una con su explicación.</string>
     <string name="home_version">Versión %1$s</string>
 
     <!-- Pantalla de cuenta -->
@@ -25,22 +19,19 @@
     <string name="cuenta_apodo_label">Apodo</string>
     <string name="cuenta_reglas">De 3 a 16 caracteres: letras sin acentos, números y guion bajo (_). Sin espacios.</string>
     <string name="cuenta_guardar">GUARDAR APODO</string>
-    <string name="cuenta_microsoft_titulo">Cuenta Microsoft</string>
-    <string name="cuenta_microsoft_detalle">Opcional: sirve para tu skin oficial y para entrar a otros servidores. Para jugar en Cretania no hace falta. Disponible próximamente.</string>
 
     <!-- Sincronización del modpack -->
     <string name="sync_titulo">Preparando Cretania</string>
     <string name="sync_analizando">Consultando el servidor y comprobando qué falta descargar…</string>
     <string name="sync_resumen">Versión %1$s · faltan %2$d de %3$d archivos (%4$s)</string>
-    <string name="sync_nota">La descarga se reanuda sola si se corta: lo ya bajado y verificado no se repite. Conviene estar en WiFi.</string>
+    <string name="sync_nota">La descarga se reanuda sola si se corta: lo ya bajado y verificado no se repite. Conviene estar en wifi.</string>
     <string name="sync_descargar">DESCARGAR</string>
     <string name="sync_descargando">%1$d de %2$d archivos</string>
     <string name="sync_progreso">%1$d%% — %2$s de %3$s · quedan %4$s</string>
     <string name="sync_velocidad">%1$s por segundo</string>
-    <string name="sync_cancelar">Cancelar</string>
+    <string name="sync_cancelar">CANCELAR</string>
     <string name="sync_completo">Modpack listo — versión %1$s, %2$d mods verificados</string>
-    <string name="sync_completo_detalle">El lanzamiento del juego llega en la próxima actualización del launcher. Tus archivos ya quedan listos y al día.</string>
-    <string name="sync_error_titulo">No se pudo</string>
+    <string name="sync_error_titulo">No se pudo preparar el modpack</string>
     <string name="sync_reintentar">REINTENTAR</string>
     <string name="sync_volver">← Volver</string>
 
@@ -63,6 +54,6 @@
     <string name="juego_listo">Juego instalado ✓</string>
     <string name="juego_fallo">No se pudo instalar el juego: %1$s</string>
     <string name="juego_entrar">ENTRAR A CRETANIA</string>
-    <string name="juego_entrar_detalle">Arranca Minecraft con tu apodo y conecta directo a mc.cretania.net. El primer arranque con 172 mods tarda varios minutos.</string>
+    <string name="juego_entrar_detalle">Arranca Minecraft con tu apodo y conecta directo a mc.cretania.net. El primer arranque con todos los mods tarda varios minutos.</string>
     <string name="juego_lanzando">Arrancando el juego…</string>
 </resources>

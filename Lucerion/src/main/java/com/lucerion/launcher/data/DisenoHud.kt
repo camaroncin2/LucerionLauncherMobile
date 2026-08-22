@@ -24,6 +24,7 @@ data class ControlHud(
 
 data class DisenoHud(val controles: MutableList<ControlHud>)
 
+
 object RepositorioDiseno {
 
     private const val CLAVE = "diseno_hud"
@@ -42,13 +43,43 @@ object RepositorioDiseno {
         ),
     )
 
+    /**
+     * Carga el diseño guardado y lo REPARA antes de devolverlo.
+     *
+     * Gson construye los objetos sin pasar por el constructor de Kotlin, así
+     * que los campos que no estaban en el JSON quedan en cero — no en su valor
+     * por defecto. Cuando se añadió la opacidad, todos los diseños existentes
+     * pasaron a opacidad 0 y el HUD entero quedó casi invisible. Aquí se
+     * sanean los valores imposibles, se rellenan los controles predefinidos
+     * que falten (si no, un control desaparecía para siempre) y se sobrevive
+     * a un JSON corrupto sin tumbar la app.
+     */
     fun cargar(contexto: Context): DisenoHud {
         val crudo = contexto.getSharedPreferences("lucerion", Context.MODE_PRIVATE)
             .getString(CLAVE, null) ?: return porDefecto()
-        return runCatching { gson.fromJson(crudo, DisenoHud::class.java) }
-            .getOrNull()
-            ?.takeIf { it.controles.isNotEmpty() }
-            ?: porDefecto()
+
+        val leido = runCatching { gson.fromJson(crudo, DisenoHud::class.java) }.getOrNull()
+        @Suppress("SENSELESS_COMPARISON")
+        val controles = leido?.controles?.filter { it != null && it.id != null && it.tipo != null }
+        if (controles.isNullOrEmpty()) return porDefecto()
+
+        val saneados = controles.map { c ->
+            c.apply {
+                // 0 sólo puede venir de un diseño anterior a la opacidad: se
+                // devuelve al valor de fábrica en vez de dejarlo invisible.
+                opacidad = if (opacidad < 0.15f) 0.85f else opacidad.coerceAtMost(1f)
+                tam = tam.coerceIn(36, 220)
+                x = x.coerceIn(0f, 1f)
+                y = y.coerceIn(0f, 1f)
+            }
+        }.toMutableList()
+
+        // Controles predefinidos ausentes: se reponen en su sitio de fábrica.
+        val presentes = saneados.map { it.id }.toSet()
+        for (falta in porDefecto().controles) {
+            if (falta.id !in presentes) saneados += falta
+        }
+        return DisenoHud(saneados)
     }
 
     fun guardar(contexto: Context, diseno: DisenoHud) {

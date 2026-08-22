@@ -47,7 +47,7 @@ object RepositorioSkin {
             val medidaOk = (bmp.width == 64 && (bmp.height == 64 || bmp.height == 32)) ||
                 (bmp.width == 128 && bmp.height == 128) // skins HD
             if (!medidaOk) {
-                return "Una skin debe medir 64×64 (o 64×32). Esta mide ${bmp.width}×${bmp.height}."
+                return "Una skin debe medir 64×64, 64×32 o 128×128. Esta mide ${bmp.width}×${bmp.height}."
             }
             archivoSkin(contexto).outputStream().use { it.write(bytes) }
             null

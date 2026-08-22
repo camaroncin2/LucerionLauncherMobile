@@ -172,7 +172,7 @@ class EditorControlesActivity : Activity() {
         deslizador.progress = c.tam - 36
         deslizadorOpacidad.progress = ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85)
         mostrarTam(c)
-        botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
+        botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.INVISIBLE
         for (control in diseno.controles) {
             velos[control.id]?.setBackgroundColor(if (control === c) SELECCION else Color.TRANSPARENT)
         }
@@ -263,28 +263,48 @@ class EditorControlesActivity : Activity() {
         }
         addView(deslizadorOpacidad, LinearLayout.LayoutParams(dp(230), LinearLayout.LayoutParams.WRAP_CONTENT))
 
-        val fila = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        // Dos filas de botones: en una sola, "GUARDAR Y SALIR" se recortaba
+        // a "G U" porque el panel no da para cuatro botones seguidos.
         fun accion(texto: String, alPulsar: () -> Unit): Button = Button(context).apply {
             text = texto
-            textSize = 12f
+            textSize = 11f
+            minWidth = dp(104)
+            minimumWidth = dp(104)
+            setPadding(dp(6), 0, dp(6), 0)
             setOnClickListener { alPulsar() }
         }
-        fila.addView(accion("＋ BOTÓN") { dialogoNuevoBoton() })
+
+        val filaArriba = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        filaArriba.addView(accion("+ BOTÓN") { dialogoNuevoBoton() })
         botonBorrar = accion("BORRAR") {
-            seleccionado?.let { if (it.tipo == "tecla") { diseno.controles.remove(it); seleccionado = null; redibujar() } }
-        }.apply { visibility = View.GONE }
-        fila.addView(botonBorrar)
-        fila.addView(accion("RESTABLECER") {
-            RepositorioDiseno.restablecer(this@EditorControlesActivity)
-            diseno = RepositorioDiseno.porDefecto()
-            seleccionado = null
-            redibujar()
-        })
-        fila.addView(accion("GUARDAR Y SALIR") {
-            RepositorioDiseno.guardar(this@EditorControlesActivity, diseno)
-            finish()
-        })
-        addView(fila)
+            seleccionado?.let {
+                if (it.tipo == "tecla") {
+                    diseno.controles.remove(it)
+                    seleccionado = null
+                    etiquetaTam.text = "Toca un control para editarlo; arrástralo para moverlo."
+                    redibujar()
+                }
+            }
+        }.apply { visibility = View.INVISIBLE }
+        filaArriba.addView(botonBorrar)
+        addView(filaArriba)
+
+        val filaAbajo = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        filaAbajo.addView(
+            accion("RESTABLECER") {
+                RepositorioDiseno.restablecer(this@EditorControlesActivity)
+                diseno = RepositorioDiseno.porDefecto()
+                seleccionado = null
+                redibujar()
+            },
+        )
+        filaAbajo.addView(
+            accion("GUARDAR Y SALIR") {
+                RepositorioDiseno.guardar(this@EditorControlesActivity, diseno)
+                finish()
+            },
+        )
+        addView(filaAbajo)
     }
 
     /**

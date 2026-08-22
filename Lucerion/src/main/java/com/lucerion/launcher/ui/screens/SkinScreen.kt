@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lucerion.launcher.data.RepositorioSkin
 import com.lucerion.launcher.ui.skin.VistaSkin3D
@@ -48,8 +50,11 @@ import com.lucerion.launcher.ui.theme.TextoSuave
  * través de su propio servidor de sesiones para cuentas libres.
  */
 @Composable
-fun SkinScreen() {
+fun SkinScreen(alVolver: () -> Unit = {}) {
     val contexto = LocalContext.current
+    // Coherencia con Cuenta y Ajustes: el boton atras vuelve a Inicio en vez
+    // de cerrar la app desde una seccion que no es la raiz.
+    androidx.activity.compose.BackHandler(onBack = alVolver)
 
     // Sin skin propia se muestra la clasica: asi es como te ven en el
     // servidor mientras no elijas una.
@@ -73,7 +78,7 @@ fun SkinScreen() {
     // fuera de la vista y el modelo se comia el gesto de desplazar.
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     val apaisado = config.screenWidthDp > config.screenHeightDp
-    val altoVista = if (apaisado) 200.dp else 340.dp
+    val altoVista = if (apaisado) 250.dp else 340.dp
 
     Column(
         modifier = Modifier
@@ -84,7 +89,8 @@ fun SkinScreen() {
         Text("Tu skin", style = MaterialTheme.typography.displayLarge, color = OroClaro)
         Text(
             "Así te ven los demás en Cretania. Elige una imagen de skin de " +
-                "Minecraft (64×64) y gírala con el dedo para revisarla por todos lados.",
+                "Minecraft (64×64, 64×32 o 128×128) y gírala con el dedo para " +
+                "revisarla por todos lados.",
             style = MaterialTheme.typography.bodyMedium,
             color = TextoSuave,
         )
@@ -94,6 +100,10 @@ fun SkinScreen() {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                // En apaisado el recuadro se estiraba a todo el ancho con el
+                // modelo diminuto al centro; acotado, el personaje se ve igual
+                // y queda sitio para lo demás.
+                .widthIn(max = if (apaisado) 420.dp else Dp.Infinity)
                 .height(altoVista)
                 .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(16.dp)),
             color = Bg3,

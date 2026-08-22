@@ -59,6 +59,8 @@ fun CuentaScreen(
     apodoInicial: String?,
     alGuardar: (String) -> Unit,
     alVolver: () -> Unit,
+    /** Por qué se llegó aquí (p. ej. venir de JUGAR sin apodo elegido). */
+    motivo: String? = null,
 ) {
     BackHandler(onBack = alVolver)
 
@@ -101,6 +103,14 @@ fun CuentaScreen(
             modifier = Modifier.widthIn(max = 480.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            motivo?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = OroClaro,
+                )
+                Spacer(Modifier.height(10.dp))
+            }
             Text(
                 text = stringResource(R.string.cuenta_explicacion),
                 style = MaterialTheme.typography.bodyMedium,
@@ -110,7 +120,9 @@ fun CuentaScreen(
 
             OutlinedTextField(
                 value = apodo,
-                onValueChange = { apodo = it.take(20) },
+                // 16 es el maximo real (RepositorioCuenta.validarApodo): dejar teclear
+                // mas caracteres solo servia para que el campo se pusiera en rojo.
+                onValueChange = { apodo = it.take(16) },
                 label = { Text(stringResource(R.string.cuenta_apodo_label)) },
                 singleLine = true,
                 isError = error != null,

@@ -96,6 +96,20 @@ class BotonTactil(
         return true
     }
 
+    /**
+     * Al reconstruirse el HUD (cambiar de palanca a cruceta, salir del editor)
+     * la vista se quita de pantalla. Un conmutador encendido ignora UP y
+     * CANCEL por diseño, así que la tecla se quedaba PULSADA en el juego para
+     * siempre: el personaje seguía agachado con el botón nuevo apagado.
+     */
+    override fun onDetachedFromWindow() {
+        if (conmutador && activo) {
+            activo = false
+            alSoltar()
+        }
+        super.onDetachedFromWindow()
+    }
+
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()

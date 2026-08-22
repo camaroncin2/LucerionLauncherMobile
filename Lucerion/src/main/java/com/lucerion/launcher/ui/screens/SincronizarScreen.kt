@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -79,12 +81,20 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
     }
     BackHandler(onBack = salir)
 
+    // En apaisado quedan ~365 dp de alto: con el espaciado de vertical, el
+    // botón ENTRAR A CRETANIA — el objetivo de toda la app — nacía fuera de
+    // la pantalla. Se compacta el aire, no el contenido.
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val apaisado = config.screenWidthDp > config.screenHeightDp
+    val aire = if (apaisado) 0.45f else 1f
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Bg2, Bg)))
+            .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.safeDrawing)
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .padding(horizontal = 24.dp, vertical = if (apaisado) 12.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -95,16 +105,16 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
                 modifier = Modifier.clickable(onClick = salir),
             )
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(18.dp * aire))
         Text(
             text = stringResource(R.string.sync_titulo),
             style = MaterialTheme.typography.headlineMedium,
             color = OroClaro,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(28.dp * aire))
 
         Column(
-            modifier = Modifier.widthIn(max = 520.dp),
+            modifier = Modifier.widthIn(max = if (apaisado) 640.dp else 520.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (val e = estado) {
@@ -182,8 +192,16 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
                         style = MaterialTheme.typography.titleMedium,
                         color = CreateNaranja,
                         modifier = Modifier.clickable {
-                            trabajo[0]?.cancel()
-                            ambito.launch { sincronizador.analizar() }
+                            // Esperar a que la descarga termine de cancelarse
+                            // antes de re-analizar: si no, el "Inactivo" tardío
+                            // pisaba el resultado y la pantalla se quedaba
+                            // colgada en "Analizando" para siempre.
+                            val previo = trabajo[0]
+                            previo?.cancel()
+                            ambito.launch {
+                                previo?.join()
+                                sincronizador.analizar()
+                            }
                         },
                     )
                 }
@@ -307,6 +325,8 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
     val estadoJuego by InstaladorJuego.estado.collectAsState()
     val ambito = rememberCoroutineScope()
     var lanzando by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Mientras arranca el juego, el boton atras no debe abandonar la pantalla.
+    androidx.activity.compose.BackHandler(enabled = lanzando) { }
     var errorLanzar by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
 
     // Como termino la partida anterior: si el juego murio por un fallo, aqui
@@ -455,9 +475,25 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
                     Spacer(Modifier.height(12.dp))
                 }
                 BotonDorado(texto = stringResource(R.string.juego_entrar)) {
+                    // Ya hay partida viva (la app quedó minimizada): volver a
+                    // ella. Arrancar una segunda JVM dejaba la primera sin
+                    // controles y ambas peleando por la memoria.
+                    if (com.lucerion.launcher.ui.juego.JuegoActivity.partidaEnCurso()) {
+                        actividad.startActivity(
+                            android.content.Intent(
+                                actividad,
+                                com.lucerion.launcher.ui.juego.JuegoActivity::class.java,
+                            ),
+                        )
+                        return@BotonDorado
+                    }
                     lanzando = true
                     errorLanzar = null
-                    ambito.launch {
+                    // Ambito propio del arranque, NO el de la composicion: si
+                    // el jugador sale de la pantalla a mitad, la JVM ya esta
+                    // viva y cancelar aqui dejaba el proceso huerfano sin
+                    // abrir nunca la pantalla del juego.
+                    Lanzador.ambitoArranque.launch {
                         try {
                             Lanzador.lanzar(actividad, dirInstancia, apodo)
                         } catch (e: Exception) {

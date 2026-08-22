@@ -163,7 +163,7 @@ class SincronizadorModpack(private val dirInstancia: File) {
             _estado.value = Estado.Inactivo
             throw e
         } catch (e: Exception) {
-            _estado.value = Estado.Fallo(e.message ?: "Fallo la descarga")
+            _estado.value = Estado.Fallo(e.message ?: "Falló la descarga")
         }
     }
 

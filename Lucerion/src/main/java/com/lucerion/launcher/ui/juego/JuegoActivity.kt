@@ -59,11 +59,16 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
          */
         private var enEjecucion = false
 
+        /** ¿Hay una partida viva? Arrancar una segunda JVM deja la primera
+         *  sin controles y las dos peleando por la memoria. */
+        fun partidaEnCurso(): Boolean = enEjecucion && puente != null
+
         private const val UMBRAL_ROMPER_MS = 250L
         private const val UMBRAL_MOVIMIENTO_PX2 = 100f
         private const val TAM_BOTON_MENU = 46
         private const val VELO_NORMAL = 0x332E9BD6
         private const val VELO_ELEGIDO = 0x662E9BD6
+        private const val CLAVE_AISLANTE = "__aislante__"
     }
 
     private var cursorAgarrado = false
@@ -89,6 +94,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var botonBorrarEdicion: android.widget.Button? = null
     private var seleccionEdicion: com.lucerion.launcher.data.ControlHud? = null
     private var botonMenu: View? = null
+    private var observadorTeclado: android.view.ViewTreeObserver.OnGlobalLayoutListener? = null
 
     // ── Ciclo de vida y layout ───────────────────────────────────────────────
 
@@ -141,7 +147,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         diseno = com.lucerion.launcher.data.RepositorioDiseno.cargar(this)
         construirHud()
         botonMenu = crearBotonMenu()
-        raiz.addView(botonMenu, FrameLayout.LayoutParams(dp(44), dp(44)))
+        // Mismo tamaño relativo que el resto de controles (respeta la escala).
+        raiz.addView(botonMenu, FrameLayout.LayoutParams(dpc(TAM_BOTON_MENU), dpc(TAM_BOTON_MENU)))
 
         setContentView(raiz)
 
@@ -152,9 +159,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         // El juego queda a TAMANO COMPLETO siempre; cuando el teclado se abre,
         // la barra de entrada aparece pegada justo encima de el mostrando lo
         // que escribes (el teclado tapa la parte baja del juego, nada mas).
-        window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
+        observadorTeclado = android.view.ViewTreeObserver.OnGlobalLayoutListener {
             val alturaPantalla = window.decorView.height
-            if (alturaPantalla == 0) return@addOnGlobalLayoutListener
+            if (alturaPantalla == 0) return@OnGlobalLayoutListener
             val visible = android.graphics.Rect()
             window.decorView.getWindowVisibleDisplayFrame(visible)
             if (alturaPantalla * 2 / 3 > visible.bottom) {
@@ -167,6 +174,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 entradaTexto.translationY = 6000f
             }
         }
+        window.decorView.viewTreeObserver.addOnGlobalLayoutListener(observadorTeclado)
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
@@ -205,6 +213,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         }
 
         for (c in diseno.controles) {
+            // La cruceta ya lleva agacharse en el centro: colocar tambien el
+            // suelto dejaba DOS conmutadores para la misma tecla, cada uno con
+            // su estado, y el sneak acababa desincronizado.
+            if (usarCruceta && c.id == "agacharse") continue
             when {
                 c.tipo == "tecla" -> coloca(
                     // Boton personalizado: etiqueta visible + tecla configurada.
@@ -295,23 +307,43 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
         var dX = 0f
         var dY = 0f
+        var inicioX = 0f
+        var inicioY = 0f
         var arrastro = false
         boton.post {
-            boton.x = prefs.getFloat("menu_x", (anchoPantalla() - dp(56)).toFloat())
-            boton.y = prefs.getFloat("menu_y", (altoPantalla() / 2f) - dp(22))
+            // Esquina superior izquierda: el sitio de fábrica anterior (borde
+            // derecho, a media altura) caía ENCIMA del botón de agacharse y se
+            // comía dos tercios de su superficie en toda instalación nueva.
+            val tam = dpc(TAM_BOTON_MENU)
+            val maxX = maxOf(0f, (raiz.width - tam).toFloat())
+            val maxY = maxOf(0f, (raiz.height - tam).toFloat())
+            // Acotado SIEMPRE: sin esto, un sitio guardado con la ventana más
+            // ancha dejaba el engranaje fuera de pantalla — y sin engranaje no
+            // hay forma de abrir el menú nunca más.
+            boton.x = prefs.getFloat("menu_x", dp(12).toFloat()).coerceIn(0f, maxX)
+            boton.y = prefs.getFloat("menu_y", dp(12).toFloat()).coerceIn(0f, maxY)
         }
         boton.setOnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dX = e.rawX - v.x
                     dY = e.rawY - v.y
+                    inicioX = e.rawX
+                    inicioY = e.rawY
                     arrastro = false
                     v.alpha = 1f
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val nx = e.rawX - dX
                     val ny = e.rawY - dY
-                    if (Math.abs(nx - v.x) > dp(3) || Math.abs(ny - v.y) > dp(3)) arrastro = true
+                    // Distancia ACUMULADA desde que se apoyó el dedo: comparar
+                    // contra la posición actual medía el paso entre fotogramas,
+                    // así que un arrastre lento terminaba abriendo el menú.
+                    if (Math.abs(e.rawX - inicioX) > dp(6) ||
+                        Math.abs(e.rawY - inicioY) > dp(6)
+                    ) {
+                        arrastro = true
+                    }
                     v.x = nx.coerceIn(0f, maxOf(0f, (raiz.width - v.width).toFloat()))
                     v.y = ny.coerceIn(0f, maxOf(0f, (raiz.height - v.height).toFloat()))
                 }
@@ -342,17 +374,21 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0xE60C1424.toInt()) // navy translucido
             setPadding(dp(18), dp(14), dp(18), dp(16))
+            // Sin esto los toques ATRAVESABAN el panel hasta el juego: tocar el
+            // título del menú colocaba bloques o te comía la comida.
+            isClickable = true
+            isFocusable = true
         }
         panel.addView(
             android.widget.TextView(this).apply {
-                text = "Menu de Lucerion"
+                text = "Menú de Lucerion"
                 setTextColor(0xFFE8C06A.toInt())
                 textSize = 16f
             },
         )
         panel.addView(
             android.widget.TextView(this).apply {
-                text = "La partida sigue corriendo detras."
+                text = "La partida sigue corriendo detrás."
                 setTextColor(0xB3C8D0E0.toInt())
                 textSize = 12f
                 setPadding(0, 0, 0, dp(10))
@@ -387,7 +423,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             )
         }
 
-        opcion("Editar controles aqui mismo", "Mueve y redimensiona los botones sobre la partida.") {
+        opcion("Editar controles aquí mismo", "Mueve y redimensiona los botones sobre la partida.") {
             cerrarMenu()
             entrarModoEdicion()
         }
@@ -395,7 +431,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         opcion(
             if (usandoCruceta) "Cambiar a palanca" else "Cambiar a cruceta",
             if (usandoCruceta) "Palanca: diagonales y correr con doble toque."
-            else "Cruceta: cuatro flechas fijas, mas precision de boton.",
+            else "Cruceta: cuatro flechas fijas con agacharse en el centro.",
         ) {
             com.lucerion.launcher.data.RepositorioAjustes.guardarUsarCruceta(this, !usandoCruceta)
             cerrarMenu()
@@ -405,7 +441,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             cerrarMenu()
             abrirTeclado()
         }
-        opcion("Cerrar el menu", "Vuelve a la partida.") { cerrarMenu() }
+        opcion("Cerrar el menú", "Vuelve a la partida.") { cerrarMenu() }
 
         raiz.addView(
             panel,
@@ -438,6 +474,23 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     /** Capa arrastrable sobre cada control (y lo desconecta del juego). */
     @SuppressLint("ClickableViewAccessibility")
     private fun crearVelosEdicion() {
+        // Capa a pantalla completa por DEBAJO de los velos: mientras editas, el
+        // juego no debe recibir nada. Sin ella, tocar el fondo cambiaba de slot
+        // y mantener pulsado tiraba el ítem al suelo.
+        val aislante = View(this).apply {
+            setBackgroundColor(0x14000000)
+            isClickable = true
+            isFocusable = true
+        }
+        raiz.addView(
+            aislante,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        velosEdicion[CLAVE_AISLANTE] = aislante
+
         for ((c, vista) in controlesEnPantalla) {
             val lp = vista.layoutParams as FrameLayout.LayoutParams
             val velo = View(this).apply { setBackgroundColor(VELO_NORMAL) }
@@ -483,7 +536,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     }
 
     private fun etiquetaDe(c: com.lucerion.launcher.data.ControlHud): String = when {
-        c.tipo == "tecla" -> "Boton " + (c.etiqueta ?: "?")
+        c.tipo == "tecla" -> "Botón " + (c.etiqueta ?: "?")
         c.id == "movimiento" -> "Movimiento"
         else -> c.id.replaceFirstChar { it.uppercase() }
     }
@@ -511,7 +564,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
         val columnaSliders = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val titulo = android.widget.TextView(this).apply {
-            text = "Toca un control y arrástralo"
+            text = "Toca un control para editarlo; arrástralo para moverlo."
             setTextColor(0xFFE8C06A.toInt())
             textSize = 12f
         }
@@ -582,6 +635,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             if (c.tipo != "tecla") return@boton
             diseno.controles.remove(c)
             seleccionEdicion = null
+            // Devolver el panel a "nada seleccionado": el título seguía
+            // nombrando un control borrado y los deslizadores quedaban mudos.
+            tituloEdicion?.text = "Toca un control para editarlo; arrástralo para moverlo."
+            botonBorrarEdicion?.visibility = View.INVISIBLE
             rehacerEdicion()
         }.apply { visibility = View.INVISIBLE } // reserva su hueco: la barra no salta
         filaArriba.addView(borrar)
@@ -619,7 +676,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private fun dialogoNuevoBotonEnJuego() {
         val nombres = com.lucerion.launcher.data.CatalogoTeclas.disponibles.map { it.first }.toTypedArray()
         android.app.AlertDialog.Builder(this)
-            .setTitle("Nuevo boton - que tecla pulsara?")
+            .setTitle("Nuevo botón — ¿qué tecla pulsará?")
             .setItems(nombres) { _, cual -> dialogoEtiquetaEnJuego(cual) }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -633,13 +690,18 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             setSelection(text.length)
         }
         android.app.AlertDialog.Builder(this)
-            .setTitle("Tecla " + nombre + " - etiqueta del boton")
+            .setTitle("Tecla " + nombre + " — etiqueta del botón")
             .setView(campo)
-            .setPositiveButton("Anadir") { _, _ ->
+            .setPositiveButton("Añadir") { _, _ ->
+                // Desplazamiento por cada botón ya existente: dos botones
+                // nuevos seguidos nacían exactamente uno encima del otro.
+                val personalizados = diseno.controles.count { it.tipo == "tecla" }
                 val nuevo = com.lucerion.launcher.data.ControlHud(
                     id = "tecla_" + System.nanoTime(),
                     tipo = "tecla",
-                    x = 0.5f, y = 0.45f, tam = 56,
+                    x = (0.42f + personalizados * 0.06f).coerceAtMost(0.9f),
+                    y = (0.40f + personalizados * 0.05f).coerceAtMost(0.85f),
+                    tam = 56,
                     etiqueta = campo.text.toString().ifBlank { nombre },
                     tecla = codigo,
                 )
@@ -788,7 +850,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     // ── Superficie ───────────────────────────────────────────────────────────
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, ancho: Int, alto: Int) {
-        val p = puente ?: run { finish(); return }
+        val p = puente ?: run {
+            // Sin puente no hay partida: dejar el estado limpio o el siguiente
+            // arranque creía que ya corría y se quedaba en pantalla negra.
+            enEjecucion = false
+            detenerServicio()
+            finish()
+            return
+        }
         if (enEjecucion) {
             // El juego ya corre: solo re-adjuntar la ventana nueva.
             st.setDefaultBufferSize(ancho, alto)
@@ -820,7 +889,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     runOnUiThread {
                         enEjecucion = false
                         puente = null
-                        stopService(android.content.Intent(this@JuegoActivity, com.lucerion.launcher.motor.ServicioJuego::class.java))
+                        dirJuego = null
+                        detenerServicio()
                         finish()
                     }
                 }
@@ -1006,7 +1076,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 if (nuevos > antes) {
                     s?.subSequence(inicio + antes, inicio + nuevos)?.forEach { c ->
                         if (c == '\n') enviarYLimpiar(p)
-                        else p.pushEventChar(c)
+                        // Por la misma cola que ENTER y retroceso: enviados al
+                        // instante, las letras adelantaban a los borrados y el
+                        // juego recibía el texto en otro orden del que veías.
+                        else caracter(p, c)
                     }
                 } else if (antes > nuevos) {
                     repeat(antes - nuevos) { tecla(p, FCLKeycodes.KEY_BACKSPACE) }
@@ -1057,6 +1130,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         handler.postAtTime({ p.pushEventKey(codigo, 0, false) }, base + 55)
     }
 
+    /** Un carácter, respetando el orden de la cola de pulsaciones. */
+    private fun caracter(p: FCLBridge, c: Char) {
+        val base = maxOf(android.os.SystemClock.uptimeMillis(), proximoDisparo)
+        proximoDisparo = base + 12
+        handler.postAtTime({ p.pushEventChar(c) }, base)
+    }
+
     private fun clic(p: FCLBridge, boton: Int) {
         p.pushEventMouseButton(boton, true)
         handler.postDelayed({ p.pushEventMouseButton(boton, false) }, 60)
@@ -1082,12 +1162,59 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         super.onResume()
         org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, 1)
         org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 1)
+        // Si el jugador editó el HUD en Ajustes mientras la partida estaba
+        // minimizada, al volver hay que traer ESE diseño: la copia en memoria
+        // pisaba silenciosamente todo lo hecho allí.
+        if (!modoEdicion) {
+            val guardado = com.lucerion.launcher.data.RepositorioDiseno.cargar(this)
+            if (guardado != diseno) {
+                diseno = guardado
+                construirHud()
+            }
+        }
     }
 
     override fun onPause() {
         org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, 0)
         org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0)
+        soltarTodo()
         super.onPause()
+    }
+
+    /**
+     * Suelta todo lo que pudiera haber quedado pulsado al irse a segundo
+     * plano. Sin esto, minimizar en pleno toque dejaba al personaje andando
+     * o agachado para siempre, sin nadie que soltara la tecla.
+     */
+    private fun soltarTodo() {
+        val p = puente ?: return
+        for ((codigo, pulsada) in movimientoActivo) {
+            if (pulsada) p.pushEventKey(codigo, 0, false)
+        }
+        movimientoActivo.keys.forEach { movimientoActivo[it] = false }
+        p.pushEventKey(FCLKeycodes.KEY_LEFTCTRL, 0, false)
+        if (sosteniendoDerecho) {
+            p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
+            sosteniendoDerecho = false
+        }
+        handler.removeCallbacks(toqueLargo)
+    }
+
+    private fun detenerServicio() {
+        runCatching {
+            stopService(
+                android.content.Intent(this, com.lucerion.launcher.motor.ServicioJuego::class.java),
+            )
+        }
+    }
+
+    override fun onDestroy() {
+        // El observador de layout retiene la Activity y los envíos diferidos
+        // pueden dispararse sobre un puente que ya no existe.
+        observadorTeclado?.let { window.decorView.viewTreeObserver.removeOnGlobalLayoutListener(it) }
+        observadorTeclado = null
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     override fun onStart() {

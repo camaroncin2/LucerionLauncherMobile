@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lucerion.launcher.R
 import com.lucerion.launcher.ui.theme.AmbarCta1
 import com.lucerion.launcher.ui.theme.AmbarCta2
@@ -90,7 +91,7 @@ private fun HomeVertical(versionApp: String, alJugar: () -> Unit) {
         Spacer(Modifier.height(28.dp))
         BloqueJugar(alJugar)
         Spacer(Modifier.height(24.dp))
-        BloqueSkinInicio(alturaVista = 300)
+        BloqueSkinInicio(alturaVista = 260)
         Spacer(Modifier.height(28.dp))
         PieVersion(versionApp)
     }
@@ -106,18 +107,20 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
         // botón fuera de la vista.
         Column(
             modifier = Modifier
-                .weight(0.42f)
+                .weight(0.46f)
                 .fillMaxHeight()
-                .padding(horizontal = 28.dp, vertical = 24.dp),
+                // Red de seguridad: con letra grande del sistema el panel
+                // desbordaba y se cortaban el título Y la versión a la vez.
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
-            CabeceraMarca()
-            Spacer(Modifier.height(14.dp))
+            CabeceraMarca(compacta = true)
+            Spacer(Modifier.height(10.dp))
             SeparadorRemaches()
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(18.dp))
             BloqueJugar(alJugar)
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(18.dp))
             PieVersion(versionApp)
         }
 
@@ -133,9 +136,9 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
         // que los botones queden siempre visibles sin desplazar nada.
         Column(
             modifier = Modifier
-                .weight(0.58f)
+                .weight(0.54f)
                 .fillMaxHeight()
-                .padding(horizontal = 28.dp, vertical = 24.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.Center,
         ) {
             BloqueSkinInicio(expandible = true, modifier = Modifier.fillMaxHeight())
@@ -146,11 +149,22 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
 // ── Piezas compartidas por ambas distribuciones ──────────────────────────────
 
 @Composable
-private fun CabeceraMarca() {
+private fun CabeceraMarca(compacta: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = stringResource(R.string.home_titulo),
-            style = MaterialTheme.typography.displayLarge,
+            // En apaisado el panel es angosto y con la barra desplegada el
+            // nombre se partía en dos líneas ("LUCERIO / N"). Nunca se parte.
+            style = if (compacta) {
+                MaterialTheme.typography.displayLarge.copy(
+                    fontSize = 30.sp,
+                    letterSpacing = 3.sp,
+                )
+            } else {
+                MaterialTheme.typography.displayLarge
+            },
+            maxLines = 1,
+            softWrap = false,
             color = OroClaro,
         )
         Text(

@@ -100,12 +100,21 @@ object InstaladorJuego {
      * la próxima entrada la reconstruya limpia. Librerías y assets ya
      * descargados se reutilizan; mundos y opciones del juego no se tocan.
      */
-    fun repararInstalacion(dirInstancia: File) {
+    fun repararInstalacion(dirInstancia: File): Boolean {
+        // Borrar la version mientras el motor sigue escribiendo en ella deja
+        // una instalacion corrupta a medio camino: primero hay que esperar.
+        if (_estado.value is Estado.Instalando) {
+            _estado.value = Estado.Fallo(
+                "Hay una instalación en curso: espera a que termine para reparar.",
+            )
+            return false
+        }
         File(dirInstancia, "versions/$NOMBRE_VERSION").deleteRecursively()
         marcadorLoader(dirInstancia).delete()
         _estado.value = Estado.SinInstalar(
             "Reparación pedida: en la próxima entrada el juego se reinstala limpio (lo ya descargado se reutiliza).",
         )
+        return true
     }
 
     /**
@@ -138,7 +147,7 @@ object InstaladorJuego {
             ) {
                 // Version previa sospechosa o de otro loader: se retira para que
                 // GameBuilder construya limpia (librerias/assets se reutilizan).
-                android.util.Log.i("LucerionMotor", "Retirando version previa (loader=$loaderPrevio)")
+                android.util.Log.i("LucerionMotor", "Retirando versión previa (loader=$loaderPrevio)")
                 dirVersion.deleteRecursively()
             }
             android.util.Log.i("LucerionMotor", "Instalando MC ${pack.minecraft} + NeoForge ${pack.loaderVersion}")
@@ -201,8 +210,13 @@ object InstaladorJuego {
                 error("El instalador terminó pero NeoForge no quedó integrado en la versión — reintenta; si persiste, revisa fcl.log")
             }
             marcador.writeText(pack.loaderVersion)
-            android.util.Log.i("LucerionMotor", "Instalacion verificada: NeoForge integrado")
+            android.util.Log.i("LucerionMotor", "Instalación verificada: NeoForge integrado")
             _estado.value = Estado.Instalado
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Cancelar no es fallar: sin esto, salir de la pantalla mostraba
+            // un error inventado al volver.
+            _estado.value = Estado.SinInstalar()
+            throw e
         } catch (e: Exception) {
             _estado.value = Estado.Fallo(e.message ?: e.javaClass.simpleName)
         }

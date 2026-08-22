@@ -27,7 +27,7 @@ class ServicioJuego : Service() {
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(canal)
         val notificacion: Notification = NotificationCompat.Builder(this, "lucerion_juego")
             .setContentTitle("Cretania en ejecución")
-            .setContentText("Mantener viva la partida mientras la app está en segundo plano")
+            .setContentText("La partida sigue viva mientras la app está en segundo plano.")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
             .build()

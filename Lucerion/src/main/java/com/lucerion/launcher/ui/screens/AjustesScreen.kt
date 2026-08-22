@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -65,6 +66,17 @@ fun AjustesScreen(alVolver: () -> Unit) {
     var reparacionPedida by remember { mutableStateOf(false) }
     var apartado by remember { mutableStateOf<String?>(null) }
 
+    // El boton atras de Android debe subir un nivel, igual que el enlace de
+    // la cabecera: sin esto cerraba la app desde un apartado.
+    androidx.activity.compose.BackHandler {
+        if (apartado == null) alVolver() else apartado = null
+    }
+
+    // Cada apartado empieza arriba: heredar el desplazamiento del anterior
+    // dejaba al jugador a media pantalla.
+    val estadoScroll = androidx.compose.foundation.rememberScrollState()
+    androidx.compose.runtime.LaunchedEffect(apartado) { estadoScroll.scrollTo(0) }
+
     // Datos reales del equipo para orientar la memoria: recomendada = 40 %
     // de la RAM; limite seguro = 50 % (mas alla, Android empieza a matar la
     // app bajo presion de memoria).
@@ -79,12 +91,18 @@ fun AjustesScreen(alVolver: () -> Unit) {
     var memoriaConfirmada by remember { mutableIntStateOf(RepositorioAjustes.memoriaMb(contexto)) }
     var pedirConfirmacionMemoria by remember { mutableStateOf(false) }
 
+    // A 892 dp de ancho el texto salía a ~109 caracteres por línea: se lee
+    // mal y el deslizador obligaba a barrer media pantalla.
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val apaisado = config.screenWidthDp > config.screenHeightDp
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Bg2, Bg)))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 24.dp),
+            .verticalScroll(estadoScroll)
+            .padding(horizontal = 24.dp, vertical = if (apaisado) 14.dp else 24.dp)
+            .widthIn(max = 760.dp),
     ) {
         Text(
             text = if (apartado == null) "← Volver" else "← Ajustes",
@@ -101,7 +119,9 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 "graficos" -> "Gráficos avanzados"
                 else -> "Partida"
             },
-            style = MaterialTheme.typography.displayLarge,
+            // headlineMedium y no displayLarge: displayLarge es el estilo del
+            // logotipo (44 sp con mucho tracking) y partía "Gráficos avanzados".
+            style = MaterialTheme.typography.headlineMedium,
             color = OroClaro,
         )
         Text(
@@ -112,29 +132,37 @@ fun AjustesScreen(alVolver: () -> Unit) {
         Spacer(Modifier.height(22.dp))
 
         if (apartado == null) {
-            TarjetaApartado(
-                "Controles",
-                "Palanca o cruceta, tamaño global y el editor visual para mover, agrandar y añadir botones.",
-            ) { apartado = "controles" }
-            TarjetaApartado(
-                "Rendimiento",
-                "Memoria del juego, sincronía vertical y presentación de video.",
-            ) { apartado = "rendimiento" }
-            TarjetaApartado(
-                "Gráficos avanzados",
-                "Interruptores experimentales del driver para cazar artefactos visuales.",
-            ) { apartado = "graficos" }
-            TarjetaApartado(
-                "Partida",
-                "Reparar la instalación del juego sin perder lo descargado.",
-            ) { apartado = "partida" }
+            val entradas = listOf(
+                Triple("Controles", "Palanca o cruceta, tamaño global y el editor visual para mover, agrandar y añadir botones.", "controles"),
+                Triple("Rendimiento", "Memoria del juego, sincronía vertical y presentación de video.", "rendimiento"),
+                Triple("Gráficos avanzados", "Interruptores experimentales del driver para cazar artefactos visuales.", "graficos"),
+                Triple("Partida", "Reparar la instalación del juego sin perder lo descargado.", "partida"),
+            )
+            if (apaisado) {
+                // Dos columnas: apiladas, las dos últimas nacían fuera de la
+                // pantalla y había que adivinar que estaban ahí.
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    for (mitad in entradas.chunked(2)) {
+                        Column(Modifier.weight(1f)) {
+                            for ((titulo, detalle, destino) in mitad) {
+                                TarjetaApartado(titulo, detalle) { apartado = destino }
+                            }
+                        }
+                    }
+                }
+            } else {
+                for ((titulo, detalle, destino) in entradas) {
+                    TarjetaApartado(titulo, detalle) { apartado = destino }
+                }
+            }
         }
 
         if (apartado == "controles") {
         FilaInterruptor(
             titulo = "Usar cruceta en vez de palanca",
-            explicacion = "La palanca (stick) permite diagonales y correr con doble toque; " +
-                "la cruceta son cuatro flechas fijas, útil si prefieres precisión de botón. " +
+            explicacion = "La palanca permite diagonales y correr con doble toque; " +
+                "la cruceta son cuatro flechas fijas con agacharse en el centro, útil si " +
+                "prefieres precisión de botón. " +
                 "Predeterminado: palanca.",
             valor = usarCruceta,
             alCambiar = {
@@ -158,7 +186,7 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 Text("Editor de controles en pantalla", style = MaterialTheme.typography.titleMedium, color = OroClaro)
                 Text(
                     "Previsualiza el HUD tal como se ve en el juego: arrastra cada control " +
-                        "para moverlo, ajusta su tamaño individual y añade botones " +
+                        "para moverlo, ajusta su tamaño y su transparencia, y añade botones " +
                         "personalizados ligados a una tecla (p. ej. «B» para la mochila).",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextoSuave,
@@ -313,10 +341,9 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 Spacer(Modifier.height(2.dp))
                 if (!reparacionPedida) {
                     BotonSecundario("REPARAR EN LA PRÓXIMA ENTRADA") {
-                        InstaladorJuego.repararInstalacion(
+                        reparacionPedida = InstaladorJuego.repararInstalacion(
                             File(contexto.getExternalFilesDir(null), "instancia-cretania"),
                         )
-                        reparacionPedida = true
                     }
                 } else {
                     Text(
@@ -348,22 +375,6 @@ private fun TarjetaApartado(titulo: String, explicacion: String, alPulsar: () ->
 }
 
 // ── Piezas ──────────────────────────────────────────────────────────────────
-
-@Composable
-private fun TituloSeccion(texto: String) {
-    Spacer(Modifier.height(18.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(texto, style = MaterialTheme.typography.titleMedium, color = Oro)
-        Spacer(Modifier.width(10.dp))
-        Box(
-            Modifier
-                .weight(1f)
-                .height(1.dp)
-                .background(OroProfundo.copy(alpha = 0.5f)),
-        )
-    }
-    Spacer(Modifier.height(10.dp))
-}
 
 @Composable
 private fun Tarjeta(contenido: @Composable () -> Unit) {

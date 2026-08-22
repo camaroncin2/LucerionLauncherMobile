@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +51,9 @@ class MainActivity : ComponentActivity() {
                 var seccion by remember { mutableStateOf(Seccion.Inicio) }
                 var sincronizando by remember { mutableStateOf(false) }
                 var apodo by remember { mutableStateOf(RepositorioCuenta.leerApodo(this)) }
+                // JUGAR sin apodo manda a Cuenta; al guardar hay que RETOMAR
+                // el camino, no dejar al jugador tocando JUGAR dos veces.
+                var jugarTrasElegirApodo by remember { mutableStateOf(false) }
 
                 when {
                     enSplash -> SplashScreen(alTerminar = { enSplash = false })
@@ -63,22 +70,40 @@ class MainActivity : ComponentActivity() {
                                 // El camino feliz se protege solo: sin apodo,
                                 // JUGAR lleva primero a elegirlo.
                                 alJugar = {
-                                    if (apodo == null) seccion = Seccion.Cuenta
-                                    else sincronizando = true
+                                    if (apodo == null) {
+                                        jugarTrasElegirApodo = true
+                                        seccion = Seccion.Cuenta
+                                    } else {
+                                        sincronizando = true
+                                    }
                                 },
                             )
 
                             Seccion.Cuenta -> CuentaScreen(
                                 apodoInicial = apodo,
+                                // Si vino de JUGAR, la pantalla lo dice en vez
+                                // de parecer un cambio de pestaña porque sí.
+                                motivo = if (jugarTrasElegirApodo) {
+                                    "Elige tu apodo y entras directo a Cretania."
+                                } else {
+                                    null
+                                },
                                 alGuardar = { nuevo ->
                                     RepositorioCuenta.guardarApodo(this, nuevo)
                                     apodo = nuevo
+                                    if (jugarTrasElegirApodo) {
+                                        jugarTrasElegirApodo = false
+                                        sincronizando = true
+                                    }
                                     seccion = Seccion.Inicio
                                 },
-                                alVolver = { seccion = Seccion.Inicio },
+                                alVolver = {
+                                    jugarTrasElegirApodo = false
+                                    seccion = Seccion.Inicio
+                                },
                             )
 
-                            Seccion.Skin -> SkinScreen()
+                            Seccion.Skin -> SkinScreen(alVolver = { seccion = Seccion.Inicio })
 
                             Seccion.Ajustes -> AjustesScreen(alVolver = { seccion = Seccion.Inicio })
                         }
@@ -100,19 +125,26 @@ private fun Andamiaje(
     alElegir: (Seccion) -> Unit,
     contenido: @Composable () -> Unit,
 ) {
+    // Al girar el teléfono el contenido cambia de rama (Row ↔ Column). Sin
+    // esto Compose lo DESECHA y lo vuelve a crear: se perdía lo que estabas
+    // escribiendo, el apartado abierto de Ajustes y los avisos en pantalla.
+    // movableContentOf lo mueve conservando su estado.
+    val contenidoMovible = remember(contenido) { movableContentOf(contenido) }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Bg2, Bg))),
+            .background(Brush.verticalGradient(listOf(Bg2, Bg)))
+            .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         if (maxWidth > maxHeight) {
             Row(Modifier.fillMaxSize()) {
                 BarraLateral(seccion = seccion, alElegir = alElegir)
-                Box(Modifier.weight(1f).fillMaxSize()) { contenido() }
+                Box(Modifier.weight(1f).fillMaxSize()) { contenidoMovible() }
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f)) { contenido() }
+                Box(Modifier.weight(1f)) { contenidoMovible() }
                 BarraInferior(
                     seccion = seccion,
                     alElegir = alElegir,

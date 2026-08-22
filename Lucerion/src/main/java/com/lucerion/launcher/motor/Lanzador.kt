@@ -30,6 +30,16 @@ object Lanzador {
 
     const val SERVIDOR = "mc.cretania.net"
 
+    /**
+     * Ámbito propio del arranque: una vez que la JVM del juego está viva, el
+     * proceso debe llegar hasta abrir la pantalla del juego aunque el jugador
+     * salga de la pantalla de preparación. Atado a la composición, salir a
+     * mitad dejaba el proceso huérfano y sin forma de recuperarlo.
+     */
+    val ambitoArranque = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + Dispatchers.Main,
+    )
+
     /** Memoria para la JVM: 40 % de la RAM del equipo, entre 2 y 6 GB. */
     private fun memoriaMb(actividad: Activity): Int {
         val am = actividad.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -126,7 +136,7 @@ object Lanzador {
                 if (credencialesMs != null) {
                     return@withContext lanzarCon(actividad, dirInstancia, repo, version, credencialesMs)
                 }
-                android.util.Log.w("LucerionMotor", "Sesion de Microsoft no utilizable; se usa cuenta libre")
+                android.util.Log.w("LucerionMotor", "Sesión de Microsoft no utilizable; se usa cuenta libre")
             }
 
             val fabrica = OfflineAccountFactory(

@@ -127,7 +127,7 @@ object MotorLucerion {
                 "nameserver 1.1.1.1\nnameserver 1.0.0.1\n",
             )
 
-            _estado.value = Estado.Preparando("Renderers y drivers")
+            _estado.value = Estado.Preparando("Renderizadores y controladores gráficos")
             inicializarPlugins(activity)
 
             _estado.value = Estado.Listo
