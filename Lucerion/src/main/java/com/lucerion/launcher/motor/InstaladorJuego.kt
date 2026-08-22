@@ -59,6 +59,12 @@ object InstaladorJuego {
     }
 
     fun estaInstalado(dirInstancia: File): Boolean {
+        // Mientras hay una instalacion en curso, este predicado no debe
+        // pisarle el estado: el json de la version aparece antes de que
+        // terminen librerias y assets, y la pantalla ofrecia ENTRAR sobre
+        // una instalacion a medias.
+        if (_estado.value is Estado.Instalando) return false
+
         val json = File(dirInstancia, "versions/$NOMBRE_VERSION/$NOMBRE_VERSION.json")
         if (!json.isFile) return false
         if (!jsonConNeoForge(dirInstancia)) {

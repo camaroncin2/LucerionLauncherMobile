@@ -300,6 +300,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 c.id == "pausa" -> coloca(botonTecla(BotonTactil.Glifo.PAUSA, FCLKeycodes.KEY_ESC), c)
                 c.id == "inventario" -> coloca(botonTecla(BotonTactil.Glifo.INVENTARIO, FCLKeycodes.KEY_E), c)
                 c.id == "teclado" -> coloca(BotonTactil(this, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }), c)
+
+                else -> {
+                    // Id que esta version no conoce (diseño de otra versión):
+                    // se descarta en vez de quedar ocupando sitio invisible en
+                    // el diseño para siempre.
+                    android.util.Log.w("LucerionJuego", "Control desconocido descartado: ${c.id}")
+                }
             }
         }
         // Los controles recien creados quedarian sobre el engranaje y lo
@@ -464,15 +471,26 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         }
         opcion("Cerrar el menú", "Vuelve a la partida.") { cerrarMenu() }
 
+        // Envuelto en un contenedor desplazable: con letra grande del
+        // sistema el panel medía más que la pantalla y el primero en caerse
+        // era justo "Cerrar el menú", dejándolo sin salida visible.
+        val contenedor = android.widget.ScrollView(this).apply {
+            isFillViewport = false
+            addView(panel)
+            isClickable = true
+        }
         raiz.addView(
-            panel,
+            contenedor,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER,
-            ),
+            ).apply {
+                topMargin = dp(8)
+                bottomMargin = dp(8)
+            },
         )
-        panelMenu = panel
+        panelMenu = contenedor
     }
 
     // ── Edicion del HUD sobre la partida ─────────────────────────────────────

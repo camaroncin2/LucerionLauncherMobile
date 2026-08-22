@@ -41,6 +41,8 @@ class EditorControlesActivity : Activity() {
     private lateinit var deslizadorOpacidad: SeekBar
     private lateinit var botonBorrar: Button
     private var escala = 1f
+    /** ¿Se tocó algo? Sin esto, abrir y salir ya persistía un diseño. */
+    private var huboCambios = false
 
     private companion object {
         const val SELECCION = 0x2E5EC8FF
@@ -153,8 +155,11 @@ class EditorControlesActivity : Activity() {
                         cont.y = (e.rawY - dY).coerceIn(0f, maxOf(0f, (lienzo.height - cont.height).toFloat()))
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        c.x = (cont.x + cont.width / 2f) / lienzo.width
-                        c.y = (cont.y + cont.height / 2f) / lienzo.height
+                        val nx = (cont.x + cont.width / 2f) / lienzo.width
+                        val ny = (cont.y + cont.height / 2f) / lienzo.height
+                        if (nx != c.x || ny != c.y) huboCambios = true
+                        c.x = nx
+                        c.y = ny
                     }
                 }
                 true
@@ -222,6 +227,7 @@ class EditorControlesActivity : Activity() {
                         // centro: reconstruir todo por cada tick trababa.
                         seleccionado?.let { c ->
                             c.tam = progreso + 36
+                            huboCambios = true
                             mostrarTam(c)
                             val velo = velos[c.id] ?: return@let
                             val cont = velo.parent as FrameLayout
@@ -254,6 +260,7 @@ class EditorControlesActivity : Activity() {
                     if (!delUsuario) return
                     val c = seleccionado ?: return
                     c.opacidad = (progreso + 15) / 100f
+                    huboCambios = true
                     mostrarTam(c)
                     (velos[c.id]?.parent as? FrameLayout)?.alpha = c.opacidad
                 }
@@ -280,6 +287,7 @@ class EditorControlesActivity : Activity() {
             seleccionado?.let {
                 if (it.tipo == "tecla") {
                     diseno.controles.remove(it)
+                    huboCambios = true
                     seleccionado = null
                     etiquetaTam.text = "Toca un control para editarlo; arrástralo para moverlo."
                     redibujar()
@@ -294,6 +302,9 @@ class EditorControlesActivity : Activity() {
             accion("RESTABLECER") {
                 RepositorioDiseno.restablecer(this@EditorControlesActivity)
                 diseno = RepositorioDiseno.porDefecto()
+                // Restablecer BORRA la clave; volver a guardarla al salir
+                // congelaria estos valores por defecto para siempre.
+                huboCambios = false
                 seleccionado = null
                 redibujar()
             },
@@ -339,6 +350,7 @@ class EditorControlesActivity : Activity() {
                     tecla = codigo,
                 )
                 diseno.controles.add(nuevo)
+                huboCambios = true
                 redibujar()
                 seleccionar(nuevo)
             }
@@ -347,8 +359,10 @@ class EditorControlesActivity : Activity() {
     }
 
     override fun onPause() {
-        // Guardado defensivo: salir por gesto no pierde la edición.
-        RepositorioDiseno.guardar(this, diseno)
+        // Solo se guarda lo que el jugador toco: antes, entrar al editor y
+        // rozar un control sin querer persistia el cambio sin confirmacion, y
+        // ademas revivia el diseño justo despues de RESTABLECER.
+        if (huboCambios) RepositorioDiseno.guardar(this, diseno)
         super.onPause()
     }
 }
