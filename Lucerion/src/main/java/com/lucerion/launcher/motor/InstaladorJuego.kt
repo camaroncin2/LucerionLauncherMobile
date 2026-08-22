@@ -151,7 +151,12 @@ object InstaladorJuego {
             // El oyente se registra DESPUES de existir el ejecutor: el timer del
             // motor dispara cada segundo y una referencia sin inicializar en ese
             // hilo tumba la app entera (no hay quien capture ahi).
+            // El velocimetro late cada segundo desde un timer del motor: un
+            // evento rezagado tras terminar pisaba el estado final (Instalado/
+            // Fallo) con un "Instalando" eterno y la UI quedaba sin botones.
+            val terminado = java.util.concurrent.atomic.AtomicBoolean(false)
             val oyenteVelocidad = java.util.function.Consumer<com.tungsten.fclcore.task.FetchTask.SpeedEvent> { ev ->
+                if (terminado.get()) return@Consumer
                 val total = bytes.addAndGet(ev.speed.toLong())
                 _estado.value = Estado.Instalando(
                     detalle, total, ev.speed.toLong(), hechas.get(), ejecutor.taskCount,
@@ -160,7 +165,11 @@ object InstaladorJuego {
             com.tungsten.fclcore.task.FetchTask.speedEvent
                 .channel(com.tungsten.fclcore.task.FetchTask.SpeedEvent::class.java)
                 .registerWeak(oyenteVelocidad)
-            val ok = ejecutor.test()
+            val ok = try {
+                ejecutor.test()
+            } finally {
+                terminado.set(true)
+            }
             if (!ok) {
                 val motivo = generateSequence<Throwable>(ejecutor.exception) { it.cause }
                     .lastOrNull()?.message
