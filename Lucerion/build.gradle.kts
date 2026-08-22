@@ -46,6 +46,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
+        // El motor arma con esto la cadena de identificación de sus peticiones
+        // de red; sin sobrescribirla saldría el relleno de FCLCore.
+        resValue("string", "app_version", versionName!!)
+
         // Identificador de la aplicación de Azure para el inicio de sesión con
         // Microsoft. Se define en local.properties o como variable de entorno
         // (nunca en el repositorio, que es público). Vacío = la app explica
