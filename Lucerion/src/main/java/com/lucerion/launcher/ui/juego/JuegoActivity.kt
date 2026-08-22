@@ -46,6 +46,15 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     companion object {
         var puente: FCLBridge? = null
         var dirJuego: java.io.File? = null
+
+        /**
+         * La JVM solo se ejecuta UNA vez por partida: si la superficie
+         * reaparece (volver de minimizar, Activity recreada), se re-adjunta
+         * la ventana en vez de relanzar — relanzar sobre el mismo puente
+         * tumba el proceso.
+         */
+        private var enEjecucion = false
+
         private const val UMBRAL_ROMPER_MS = 250L
         private const val UMBRAL_MOVIMIENTO_PX2 = 100f
         private const val TAM_BOTON_MENU = 46
@@ -108,37 +117,76 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL,
             ).apply { topMargin = dp(8) },
         )
-        raiz.addView(
-            crearCruceta(),
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.START,
-            ).apply { bottomMargin = dp(18); leftMargin = dp(18) },
-        )
+        // Movimiento: palanca (stick) por defecto; la cruceta queda disponible
+        // via preferencia hasta que exista la pantalla de ajustes.
+        val usarCruceta = getSharedPreferences("lucerion", MODE_PRIVATE)
+            .getBoolean("usar_cruceta", false)
+        if (usarCruceta) {
+            raiz.addView(
+                crearCruceta(),
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.BOTTOM or Gravity.START,
+                ).apply { bottomMargin = dp(18); leftMargin = dp(18) },
+            )
+        } else {
+            raiz.addView(
+                PalancaTactil(this) { adelante, atras, izquierda, derecha ->
+                    aplicarMovimiento(adelante, atras, izquierda, derecha)
+                },
+                FrameLayout.LayoutParams(
+                    dp(170), dp(170),
+                    Gravity.BOTTOM or Gravity.START,
+                ).apply { bottomMargin = dp(22); leftMargin = dp(26) },
+            )
+        }
         raiz.addView(
             botonTecla(BotonTactil.Glifo.SALTO, FCLKeycodes.KEY_SPACE),
             FrameLayout.LayoutParams(
-                dp(66), dp(66),
+                dp(84), dp(84),
                 Gravity.BOTTOM or Gravity.END,
-            ).apply { bottomMargin = dp(46); rightMargin = dp(28) },
+            ).apply { bottomMargin = dp(48); rightMargin = dp(30) },
+        )
+        raiz.addView(
+            // Agacharse acompaña al salto cuando se usa la palanca (en la
+            // cruceta ya vive en el centro).
+            BotonTactil(
+                this, BotonTactil.Glifo.AGACHARSE, conmutador = true,
+                alPresionar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, true) },
+                alSoltar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, false) },
+            ),
+            FrameLayout.LayoutParams(
+                dp(58), dp(58),
+                Gravity.BOTTOM or Gravity.END,
+            ).apply { bottomMargin = dp(146); rightMargin = dp(42) },
         )
 
         setContentView(raiz)
 
-        // Con el teclado abierto la linea de chat del juego queda tapada
-        // (esta abajo): se desplaza la superficie hacia arriba lo que mida el
-        // teclado, igual que FCL, y se restaura al cerrarlo.
+        // Mantener viva la partida al minimizar: sin servicio en primer
+        // plano, Android mata este proceso (la JVM vive aqui) en segundos.
+        startForegroundService(android.content.Intent(this, com.lucerion.launcher.motor.ServicioJuego::class.java))
+
+        // Con el teclado abierto, ENCOGER el juego para que quepa entero en
+        // la franja visible (desplazarlo escondia los recuadros de texto de
+        // arriba): todo queda a la vista mientras escribes, y al cerrar el
+        // teclado vuelve a tamano completo.
         window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
             val alturaPantalla = window.decorView.height
             if (alturaPantalla == 0) return@addOnGlobalLayoutListener
             val visible = android.graphics.Rect()
             window.decorView.getWindowVisibleDisplayFrame(visible)
             if (alturaPantalla * 2 / 3 > visible.bottom) {
-                textura.translationY = (visible.bottom - alturaPantalla).toFloat()
+                val escala = visible.bottom.toFloat() / alturaPantalla
+                textura.pivotX = textura.width / 2f
+                textura.pivotY = 0f
+                textura.scaleX = escala
+                textura.scaleY = escala
                 desplazadoPorTeclado = true
             } else if (desplazadoPorTeclado) {
                 desplazadoPorTeclado = false
-                textura.translationY = 0f
+                textura.scaleX = 1f
+                textura.scaleY = 1f
             }
         }
     }
@@ -172,9 +220,29 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         agrega(BotonTactil(this@JuegoActivity, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }))
     }
 
+    /** Estado deseado de W/A/S/D desde la palanca: solo se envían los cambios. */
+    private val movimientoActivo = mutableMapOf(
+        FCLKeycodes.KEY_W to false, FCLKeycodes.KEY_S to false,
+        FCLKeycodes.KEY_A to false, FCLKeycodes.KEY_D to false,
+    )
+
+    private fun aplicarMovimiento(adelante: Boolean, atras: Boolean, izquierda: Boolean, derecha: Boolean) {
+        val p = puente ?: return
+        val deseado = mapOf(
+            FCLKeycodes.KEY_W to adelante, FCLKeycodes.KEY_S to atras,
+            FCLKeycodes.KEY_A to izquierda, FCLKeycodes.KEY_D to derecha,
+        )
+        for ((codigo, presionada) in deseado) {
+            if (movimientoActivo[codigo] != presionada) {
+                movimientoActivo[codigo] = presionada
+                p.pushEventKey(codigo, 0, presionada)
+            }
+        }
+    }
+
     /** Cruceta clásica de Bedrock: flechas en cruz con agacharse al centro. */
     private fun crearCruceta(): FrameLayout {
-        val lado = 56
+        val lado = 64
         val paso = lado + 2
         val cont = FrameLayout(this)
         fun celda(v: View, col: Int, fila: Int) {
@@ -214,6 +282,15 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, ancho: Int, alto: Int) {
         val p = puente ?: run { finish(); return }
+        if (enEjecucion) {
+            // El juego ya corre: solo re-adjuntar la ventana nueva.
+            st.setDefaultBufferSize(ancho, alto)
+            p.setSurfaceDestroyed(false)
+            p.setSurfaceTexture(st)
+            org.lwjgl.glfw.CallbackBridge.setupBridgeWindow(Surface(st))
+            return
+        }
+        enEjecucion = true
         fijarResolucion(ancho, alto)
         st.setDefaultBufferSize(ancho, alto)
         p.setSurfaceDestroyed(false)
@@ -228,7 +305,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
                 override fun onExit(codigo: Int) {
                     runOnUiThread {
+                        enEjecucion = false
                         puente = null
+                        stopService(android.content.Intent(this@JuegoActivity, com.lucerion.launcher.motor.ServicioJuego::class.java))
                         finish()
                     }
                 }

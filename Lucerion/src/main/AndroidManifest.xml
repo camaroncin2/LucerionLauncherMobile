@@ -45,6 +45,14 @@
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation"
             android:launchMode="singleTask" />
 
+        <!-- Primer plano durante la partida: sin el, Android mata el proceso
+             (y la JVM del juego con el) a los segundos de minimizar. -->
+        <service
+            android:name=".motor.ServicioJuego"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- JVM del instalador (procesadores de NeoForge/Forge). FCLCore no
              declara manifest propio: cada consumidor del motor lo hace. -->
         <service
