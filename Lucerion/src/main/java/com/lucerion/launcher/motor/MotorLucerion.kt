@@ -74,7 +74,8 @@ object MotorLucerion {
     fun estaListo(activity: Activity): Boolean {
         cargarRutas(activity)
         return try {
-            RuntimeUtils.isLatest(FCLPath.LWJGL_DIR, "/assets/app_runtime/lwjgl") &&
+            RuntimeUtils.isLatest(FCLPath.LWJGL_DIR + "/3.3.3", "/assets/app_runtime/lwjgl/3.3.3") &&
+                RuntimeUtils.isLatest(FCLPath.LWJGL_DIR + "/3.4.1", "/assets/app_runtime/lwjgl/3.4.1") &&
                 RuntimeUtils.isLatest(FCLPath.CACIOCAVALLO_8_DIR, "/assets/app_runtime/caciocavallo") &&
                 RuntimeUtils.isLatest(FCLPath.CACIOCAVALLO_17_DIR, "/assets/app_runtime/caciocavallo17") &&
                 RuntimeUtils.isLatest(FCLPath.JAVA_21_PATH, "/assets/app_runtime/java/jre21") &&
@@ -92,7 +93,13 @@ object MotorLucerion {
             cargarRutas(activity)
 
             _estado.value = Estado.Preparando("Componentes gráficos (LWJGL)")
-            if (!RuntimeUtils.isLatest(FCLPath.LWJGL_DIR, "/assets/app_runtime/lwjgl")) {
+            // OJO: los archivos "version" de LWJGL viven en cada subcarpeta
+            // (3.3.3/, 3.4.1/), no en la raíz — chequear la raíz siempre da
+            // "al día" (isLatest devuelve true si el recurso no existe) y la
+            // instalación se salta. Mismos subpaths que usa FCL en su splash.
+            if (!RuntimeUtils.isLatest(FCLPath.LWJGL_DIR + "/3.3.3", "/assets/app_runtime/lwjgl/3.3.3") ||
+                !RuntimeUtils.isLatest(FCLPath.LWJGL_DIR + "/3.4.1", "/assets/app_runtime/lwjgl/3.4.1")
+            ) {
                 RuntimeUtils.install(activity, FCLPath.LWJGL_DIR, "app_runtime/lwjgl")
             }
 
