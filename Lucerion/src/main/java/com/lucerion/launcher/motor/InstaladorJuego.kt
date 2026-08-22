@@ -45,9 +45,23 @@ object InstaladorJuego {
         DefaultGameRepository(dirInstancia).also { it.refreshVersions() }
 
     /** ¿La versión ya está instalada? (el json de la versión existe y resuelve) */
+    /** El json de la versión DEBE integrar NeoForge; vanilla = instalación rota. */
+    private fun jsonConNeoForge(dirInstancia: File): Boolean {
+        val json = File(dirInstancia, "versions/$NOMBRE_VERSION/$NOMBRE_VERSION.json")
+        return json.isFile && json.readText().contains("neoforge", ignoreCase = true)
+    }
+
     fun estaInstalado(dirInstancia: File): Boolean {
         val json = File(dirInstancia, "versions/$NOMBRE_VERSION/$NOMBRE_VERSION.json")
         if (!json.isFile) return false
+        if (!jsonConNeoForge(dirInstancia)) {
+            // Paso lo que paso, el resultado no sirve para el servidor: se
+            // reinstala. La verificacion es barata y evita el rechazo criptico.
+            _estado.value = Estado.SinInstalar(
+                "La instalación anterior quedó sin NeoForge integrado. Toca instalar para repararla (reutiliza lo ya descargado).",
+            )
+            return false
+        }
         _estado.value = Estado.Instalado
         return true
     }
@@ -98,9 +112,16 @@ object InstaladorJuego {
             // se reutilizan igual desde libraries/).
             val marcador = marcadorLoader(dirInstancia)
             val loaderPrevio = marcador.takeIf { it.isFile }?.readText()?.trim()
-            if (loaderPrevio != null && loaderPrevio != pack.loaderVersion) {
-                File(dirInstancia, "versions/$NOMBRE_VERSION").deleteRecursively()
+            val dirVersion = File(dirInstancia, "versions/$NOMBRE_VERSION")
+            if (dirVersion.exists() &&
+                (loaderPrevio == null || loaderPrevio != pack.loaderVersion || !jsonConNeoForge(dirInstancia))
+            ) {
+                // Version previa sospechosa o de otro loader: se retira para que
+                // GameBuilder construya limpia (librerias/assets se reutilizan).
+                android.util.Log.i("LucerionMotor", "Retirando version previa (loader=$loaderPrevio)")
+                dirVersion.deleteRecursively()
             }
+            android.util.Log.i("LucerionMotor", "Instalando MC ${pack.minecraft} + NeoForge ${pack.loaderVersion}")
 
             _estado.value = Estado.Instalando("Buscando NeoForge ${pack.loaderVersion} para ${pack.minecraft}")
             val listaNeoForge = proveedor.getVersionListById("neoforge")
@@ -146,8 +167,11 @@ object InstaladorJuego {
             }
 
             repo.refreshVersions()
-            if (!estaInstalado(dirInstancia)) error("La versión no quedó registrada tras instalar")
+            if (!jsonConNeoForge(dirInstancia)) {
+                error("El instalador terminó pero NeoForge no quedó integrado en la versión — reintenta; si persiste, revisa fcl.log")
+            }
             marcador.writeText(pack.loaderVersion)
+            android.util.Log.i("LucerionMotor", "Instalacion verificada: NeoForge integrado")
             _estado.value = Estado.Instalado
         } catch (e: Exception) {
             _estado.value = Estado.Fallo(e.message ?: e.javaClass.simpleName)
