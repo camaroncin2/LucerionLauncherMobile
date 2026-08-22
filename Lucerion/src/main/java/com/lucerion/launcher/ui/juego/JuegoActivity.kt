@@ -21,6 +21,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.tungsten.fclauncher.bridge.FCLBridge
 import com.tungsten.fclauncher.bridge.FCLBridgeCallback
+import com.tungsten.fclauncher.keycodes.FCLKeycodes
 import com.tungsten.fclauncher.keycodes.LwjglGlfwKeycode
 
 /**
@@ -115,7 +116,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             ).apply { bottomMargin = dp(18); leftMargin = dp(18) },
         )
         raiz.addView(
-            botonTecla(BotonTactil.Glifo.SALTO, LwjglGlfwKeycode.KEY_SPACE),
+            botonTecla(BotonTactil.Glifo.SALTO, FCLKeycodes.KEY_SPACE),
             FrameLayout.LayoutParams(
                 dp(66), dp(66),
                 Gravity.BOTTOM or Gravity.END,
@@ -146,11 +147,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     // ── Botones estilo Bedrock: press al tocar, release al soltar ────────────
 
-    private fun botonTecla(glifo: BotonTactil.Glifo, codigo: Short): BotonTactil =
+    // OJO: pushEventKey espera codigos FCLKeycodes (scancodes de Linux) que
+    // LwjglKeycodeMap traduce a GLFW; un codigo GLFW directo cae en
+    // "desconocido" y se descarta EN SILENCIO. Por eso ninguna tecla llegaba.
+    private fun botonTecla(glifo: BotonTactil.Glifo, codigo: Int): BotonTactil =
         BotonTactil(
             this, glifo,
-            alPresionar = { puente?.pushEventKey(codigo.toInt(), 0, true) },
-            alSoltar = { puente?.pushEventKey(codigo.toInt(), 0, false) },
+            alPresionar = { puente?.pushEventKey(codigo, 0, true) },
+            alSoltar = { puente?.pushEventKey(codigo, 0, false) },
         )
 
     private fun crearBarraSuperior(): LinearLayout = LinearLayout(this).apply {
@@ -163,8 +167,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 },
             )
         }
-        agrega(botonTecla(BotonTactil.Glifo.PAUSA, LwjglGlfwKeycode.KEY_ESCAPE))
-        agrega(botonTecla(BotonTactil.Glifo.INVENTARIO, LwjglGlfwKeycode.KEY_E))
+        agrega(botonTecla(BotonTactil.Glifo.PAUSA, FCLKeycodes.KEY_ESC))
+        agrega(botonTecla(BotonTactil.Glifo.INVENTARIO, FCLKeycodes.KEY_E))
         agrega(BotonTactil(this@JuegoActivity, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }))
     }
 
@@ -181,19 +185,19 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 },
             )
         }
-        celda(botonTecla(BotonTactil.Glifo.FLECHA_ARRIBA, LwjglGlfwKeycode.KEY_W), 1, 0)
-        celda(botonTecla(BotonTactil.Glifo.FLECHA_IZQUIERDA, LwjglGlfwKeycode.KEY_A), 0, 1)
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_ARRIBA, FCLKeycodes.KEY_W), 1, 0)
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_IZQUIERDA, FCLKeycodes.KEY_A), 0, 1)
         celda(
             // Agacharse como conmutador: mantenerlo mientras caminas es incómodo.
             BotonTactil(
                 this, BotonTactil.Glifo.AGACHARSE, conmutador = true,
-                alPresionar = { puente?.pushEventKey(LwjglGlfwKeycode.KEY_LEFT_SHIFT.toInt(), 0, true) },
-                alSoltar = { puente?.pushEventKey(LwjglGlfwKeycode.KEY_LEFT_SHIFT.toInt(), 0, false) },
+                alPresionar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, true) },
+                alSoltar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, false) },
             ),
             1, 1,
         )
-        celda(botonTecla(BotonTactil.Glifo.FLECHA_DERECHA, LwjglGlfwKeycode.KEY_D), 2, 1)
-        celda(botonTecla(BotonTactil.Glifo.FLECHA_ABAJO, LwjglGlfwKeycode.KEY_S), 1, 2)
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_DERECHA, FCLKeycodes.KEY_D), 2, 1)
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_ABAJO, FCLKeycodes.KEY_S), 1, 2)
         return cont
     }
 
@@ -203,7 +207,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      */
     private fun abrirChat() {
         val p = puente ?: return
-        tecla(p, LwjglGlfwKeycode.KEY_T.toInt())
+        tecla(p, FCLKeycodes.KEY_T)
     }
 
     // ── Superficie ───────────────────────────────────────────────────────────
@@ -346,11 +350,11 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 val p = puente ?: return
                 if (nuevos > antes) {
                     s?.subSequence(inicio + antes, inicio + nuevos)?.forEach { c ->
-                        if (c == '\n') tecla(p, LwjglGlfwKeycode.KEY_ENTER.toInt())
+                        if (c == '\n') tecla(p, FCLKeycodes.KEY_ENTER)
                         else p.pushEventChar(c)
                     }
                 } else if (antes > nuevos) {
-                    repeat(antes - nuevos) { tecla(p, LwjglGlfwKeycode.KEY_BACKSPACE.toInt()) }
+                    repeat(antes - nuevos) { tecla(p, FCLKeycodes.KEY_BACKSPACE) }
                 }
             }
             override fun afterTextChanged(s: Editable?) {
@@ -362,7 +366,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         })
         setOnEditorActionListener { _, accion, _ ->
             if (accion == EditorInfo.IME_ACTION_DONE || accion == EditorInfo.IME_ACTION_SEND) {
-                puente?.let { tecla(it, LwjglGlfwKeycode.KEY_ENTER.toInt()) }
+                puente?.let { tecla(it, FCLKeycodes.KEY_ENTER) }
                 true
             } else {
                 false
@@ -397,7 +401,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        puente?.let { tecla(it, LwjglGlfwKeycode.KEY_ESCAPE.toInt()) }
+        puente?.let { tecla(it, FCLKeycodes.KEY_ESC) }
     }
 
     // ── Foco y visibilidad de la ventana GLFW (paridad con FCL) ─────────────
