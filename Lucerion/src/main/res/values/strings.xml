@@ -56,4 +56,13 @@
     <string name="juego_entrar">ENTRAR A CRETANIA</string>
     <string name="juego_entrar_detalle">Arranca Minecraft con tu apodo y conecta directo a mc.cretania.net. El primer arranque con todos los mods tarda varios minutos.</string>
     <string name="juego_lanzando">Arrancando el juego…</string>
+
+    <!-- Aviso obligatorio de las directrices de marca de Mojang para
+         cualquier proyecto de la comunidad. Va literal, en mayusculas. -->
+    <string name="aviso_mojang">NO ES UN PRODUCTO/SERVICIO/EVENTO DE MINECRAFT OFICIAL. NO ESTÁ APROBADO POR O ASOCIADO CON MOJANG O MICROSOFT</string>
+    <string name="acerca_titulo">Acerca de Lucerion</string>
+    <string name="acerca_que_es">Lucerion es el launcher oficial del servidor Cretania: instala y mantiene al día el modpack, prepara Minecraft y te conecta al servidor sin que tengas que configurar nada.</string>
+    <string name="acerca_version">Versión %1$s</string>
+    <string name="acerca_aviso_titulo">Aviso legal</string>
+    <string name="acerca_marcas">Minecraft es una marca registrada de Mojang Synergies AB. Lucerion Studios no tiene relación con Mojang ni con Microsoft.</string>
 </resources>

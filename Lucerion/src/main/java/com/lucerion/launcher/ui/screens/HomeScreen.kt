@@ -1,5 +1,6 @@
 package com.lucerion.launcher.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -82,17 +85,17 @@ private fun HomeVertical(versionApp: String, alJugar: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(horizontal = 24.dp, vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CabeceraMarca()
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         SeparadorRemaches()
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(18.dp))
         BloqueJugar(alJugar)
-        Spacer(Modifier.height(24.dp))
-        BloqueSkinInicio(alturaVista = 260)
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(16.dp))
+        BloqueSkinInicio(alturaVista = 180)
+        Spacer(Modifier.height(12.dp))
         PieVersion(versionApp)
     }
 }
@@ -151,6 +154,21 @@ private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
 @Composable
 private fun CabeceraMarca(compacta: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // El emblema de la marca preside la pantalla: es lo primero que se ve
+        // al abrir y lo que hace reconocible al launcher de un vistazo.
+        Image(
+            painter = painterResource(R.drawable.logo_lucerion),
+            contentDescription = null,
+            modifier = Modifier
+                .size(if (compacta) 48.dp else 56.dp)
+                .clip(RoundedCornerShape(if (compacta) 14.dp else 20.dp))
+                .border(
+                    1.dp,
+                    OroProfundo.copy(alpha = 0.7f),
+                    RoundedCornerShape(if (compacta) 14.dp else 20.dp),
+                ),
+        )
+        Spacer(Modifier.height(if (compacta) 8.dp else 12.dp))
         Text(
             text = stringResource(R.string.home_titulo),
             // En apaisado el panel es angosto y con la barra desplegada el
@@ -191,11 +209,24 @@ private fun BloqueJugar(alJugar: () -> Unit) {
 
 @Composable
 private fun PieVersion(versionApp: String) {
-    Text(
-        text = stringResource(R.string.home_version, versionApp),
-        style = MaterialTheme.typography.bodyMedium,
-        color = TextoSuave.copy(alpha = 0.6f),
-    )
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = stringResource(R.string.home_version, versionApp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextoSuave.copy(alpha = 0.6f),
+        )
+        Spacer(Modifier.height(8.dp))
+        // Aviso obligatorio de las directrices de Mojang: va en la pantalla
+        // principal, no escondido, aunque en tono discreto para no competir
+        // con el boton de jugar.
+        Text(
+            text = stringResource(R.string.aviso_mojang),
+            style = MaterialTheme.typography.bodySmall,
+            color = TextoSuave.copy(alpha = 0.45f),
+            textAlign = TextAlign.Center,
+            lineHeight = 13.sp,
+        )
+    }
 }
 
 /** CTA dorado con gradiente de marca y marco tipo placa metálica. */

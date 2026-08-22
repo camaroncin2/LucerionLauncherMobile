@@ -105,7 +105,10 @@ class MainActivity : ComponentActivity() {
 
                             Seccion.Skin -> SkinScreen(alVolver = { seccion = Seccion.Inicio })
 
-                            Seccion.Ajustes -> AjustesScreen(alVolver = { seccion = Seccion.Inicio })
+                            Seccion.Ajustes -> AjustesScreen(
+                                alVolver = { seccion = Seccion.Inicio },
+                                versionApp = BuildConfig.VERSION_NAME,
+                            )
                         }
                     }
                 }

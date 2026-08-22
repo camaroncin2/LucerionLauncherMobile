@@ -33,6 +33,15 @@ val TipografiaLucerion = Typography(
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
+    // Letra chica: avisos legales y notas al pie. Definida para no depender
+    // del valor por defecto de Material, que no sigue la tipografia de marca.
+    bodySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.3.sp,
+    ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,

@@ -35,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.lucerion.launcher.R
 import com.lucerion.launcher.data.RepositorioAjustes
 import com.lucerion.launcher.motor.InstaladorJuego
 import com.lucerion.launcher.ui.theme.Bg
@@ -53,7 +55,7 @@ import java.io.File
  * solo entiende quien ya sabe.
  */
 @Composable
-fun AjustesScreen(alVolver: () -> Unit) {
+fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
     val contexto = LocalContext.current
 
     var usarCruceta by remember { mutableStateOf(RepositorioAjustes.usarCruceta(contexto)) }
@@ -117,6 +119,7 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 "controles" -> "Controles"
                 "rendimiento" -> "Rendimiento"
                 "graficos" -> "Gráficos avanzados"
+                "acerca" -> "Acerca de"
                 else -> "Partida"
             },
             // headlineMedium y no displayLarge: displayLarge es el estilo del
@@ -137,6 +140,7 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 Triple("Rendimiento", "Memoria del juego, sincronía vertical y presentación de video.", "rendimiento"),
                 Triple("Gráficos avanzados", "Interruptores experimentales del driver para cazar artefactos visuales.", "graficos"),
                 Triple("Partida", "Reparar la instalación del juego sin perder lo descargado.", "partida"),
+                Triple("Acerca de", "Qué es Lucerion, versión instalada y aviso legal.", "acerca"),
             )
             if (apaisado) {
                 // Dos columnas: apiladas, las dos últimas nacían fuera de la
@@ -354,6 +358,57 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 }
             }
         }
+        }
+
+        if (apartado == "acerca") {
+            Tarjeta {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        stringResource(R.string.acerca_titulo),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = OroClaro,
+                    )
+                    Text(
+                        stringResource(R.string.acerca_que_es),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSuave,
+                    )
+                    Text(
+                        stringResource(R.string.acerca_version, versionApp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSuave.copy(alpha = 0.7f),
+                    )
+                }
+            }
+
+            // El aviso de Mojang, con marco propio: es obligatorio y tiene que
+            // poder leerse sin buscarlo.
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+                    .border(1.dp, Oro.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                color = Bg2,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        stringResource(R.string.acerca_aviso_titulo),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = OroClaro,
+                    )
+                    Text(
+                        stringResource(R.string.aviso_mojang),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = OroClaro.copy(alpha = 0.9f),
+                    )
+                    Text(
+                        stringResource(R.string.acerca_marcas),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSuave,
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(28.dp))
     }

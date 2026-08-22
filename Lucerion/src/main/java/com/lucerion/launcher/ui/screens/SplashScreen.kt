@@ -27,6 +27,11 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import com.lucerion.launcher.R
 import com.lucerion.launcher.ui.theme.Bg
 import com.lucerion.launcher.ui.theme.Bg2
@@ -71,7 +76,7 @@ fun SplashScreen(alTerminar: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
             ) {
-                EngranajeGirando(angulo)
+                EmblemaLucerion(angulo)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MarcaSplash()
                 }
@@ -81,7 +86,7 @@ fun SplashScreen(alTerminar: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                EngranajeGirando(angulo)
+                EmblemaLucerion(angulo)
                 MarcaSplash()
             }
         }
@@ -100,6 +105,25 @@ private fun MarcaSplash() {
         style = MaterialTheme.typography.bodyMedium,
         color = TextoSuave,
     )
+}
+
+/**
+ * Emblema de la marca: el icono de Lucerion quieto y nitido, con el engranaje
+ * girando alrededor. El logo no gira a proposito — un logo dando vueltas se
+ * lee peor y pierde la fuerza de la marca.
+ */
+@Composable
+private fun EmblemaLucerion(angulo: Float) {
+    Box(contentAlignment = Alignment.Center) {
+        EngranajeGirando(angulo)
+        Image(
+            painter = painterResource(R.drawable.logo_lucerion),
+            contentDescription = null,
+            modifier = Modifier
+                .size(62.dp)
+                .clip(CircleShape),
+        )
+    }
 }
 
 /** Engranaje de 10 dientes dibujado a mano — el sello steampunk de la marca. */
