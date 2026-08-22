@@ -65,7 +65,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var cursorY = 0f
     private lateinit var entradaTexto: EditText
     private lateinit var textura: TextureView
-    private var desplazadoPorTeclado = false
+    private var tecladoVisible = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     // ── Ciclo de vida y layout ───────────────────────────────────────────────
@@ -101,7 +101,12 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         )
 
         entradaTexto = crearEntradaTexto()
-        raiz.addView(entradaTexto, FrameLayout.LayoutParams(1, 1))
+        // Barra de texto visible: se posiciona justo ENCIMA del teclado cuando
+        // este se abre, para ver lo que escribes sin achicar el juego.
+        raiz.addView(
+            entradaTexto,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(44), Gravity.TOP),
+        )
 
         raiz.addView(
             crearBarraSuperior(),
@@ -148,6 +153,23 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             ).apply { bottomMargin = dp(48); rightMargin = dp(30) },
         )
         raiz.addView(
+            // Golpear/romper vive SOLO aqui: mantener = clic izquierdo
+            // sostenido; la pantalla ya no golpea nunca.
+            BotonTactil(
+                this, BotonTactil.Glifo.GOLPEAR,
+                alPresionar = {
+                    puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), true)
+                },
+                alSoltar = {
+                    puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), false)
+                },
+            ),
+            FrameLayout.LayoutParams(
+                dp(84), dp(84),
+                Gravity.BOTTOM or Gravity.END,
+            ).apply { bottomMargin = dp(48); rightMargin = dp(132) },
+        )
+        raiz.addView(
             // Agacharse acompaña al salto cuando se usa la palanca (en la
             // cruceta ya vive en el centro).
             BotonTactil(
@@ -167,26 +189,22 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         // plano, Android mata este proceso (la JVM vive aqui) en segundos.
         startForegroundService(android.content.Intent(this, com.lucerion.launcher.motor.ServicioJuego::class.java))
 
-        // Con el teclado abierto, ENCOGER el juego para que quepa entero en
-        // la franja visible (desplazarlo escondia los recuadros de texto de
-        // arriba): todo queda a la vista mientras escribes, y al cerrar el
-        // teclado vuelve a tamano completo.
+        // El juego queda a TAMANO COMPLETO siempre; cuando el teclado se abre,
+        // la barra de entrada aparece pegada justo encima de el mostrando lo
+        // que escribes (el teclado tapa la parte baja del juego, nada mas).
         window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
             val alturaPantalla = window.decorView.height
             if (alturaPantalla == 0) return@addOnGlobalLayoutListener
             val visible = android.graphics.Rect()
             window.decorView.getWindowVisibleDisplayFrame(visible)
             if (alturaPantalla * 2 / 3 > visible.bottom) {
-                val escala = visible.bottom.toFloat() / alturaPantalla
-                textura.pivotX = textura.width / 2f
-                textura.pivotY = 0f
-                textura.scaleX = escala
-                textura.scaleY = escala
-                desplazadoPorTeclado = true
-            } else if (desplazadoPorTeclado) {
-                desplazadoPorTeclado = false
-                textura.scaleX = 1f
-                textura.scaleY = 1f
+                tecladoVisible = true
+                entradaTexto.alpha = 1f
+                entradaTexto.translationY = (visible.bottom - dp(44)).toFloat()
+            } else if (tecladoVisible) {
+                tecladoVisible = false
+                entradaTexto.alpha = 0f
+                entradaTexto.translationY = 6000f
             }
         }
     }
@@ -346,20 +364,16 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         archivo.writeText(lineas.joinToString(separator = System.lineSeparator()))
     }
 
-    // ── Toque: cámara, romper (mantener) y usar (toque corto) ────────────────
+    // ── Toque estilo Bedrock: la pantalla NUNCA golpea ──────────────────────
+    //  · Arrastrar = mirar (camara). Golpear/romper SOLO con su boton.
+    //  · Toque corto en juego = usar/colocar/interactuar (clic derecho).
+    //  · Toque corto sobre la hotbar = elegir ese slot (teclas 1-9).
+    //  · En menus el dedo es el raton (toque corto = clic izquierdo).
 
     private var ultimoX = 0f
     private var ultimoY = 0f
     private var inicioToque = 0L
     private var seMovio = false
-    private var toqueDerecha = false
-    private var rompiendo = false
-    private val iniciarRomper = Runnable {
-        if (cursorAgarrado) {
-            rompiendo = true
-            puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), true)
-        }
-    }
 
     private fun manejarToque(evento: MotionEvent) {
         val p = puente ?: return
@@ -367,16 +381,12 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             MotionEvent.ACTION_DOWN -> {
                 inicioToque = System.currentTimeMillis()
                 seMovio = false
-                rompiendo = false
                 ultimoX = evento.x
                 ultimoY = evento.y
-                toqueDerecha = evento.x > (window.decorView.width / 2f)
                 if (!cursorAgarrado) {
                     cursorX = evento.x
                     cursorY = evento.y
                     p.pushEventPointer(cursorX, cursorY)
-                } else if (toqueDerecha) {
-                    handler.postDelayed(iniciarRomper, UMBRAL_ROMPER_MS)
                 }
             }
 
@@ -397,27 +407,56 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                handler.removeCallbacks(iniciarRomper)
                 val duracion = System.currentTimeMillis() - inicioToque
-                if (rompiendo) {
-                    p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), false)
-                    rompiendo = false
-                } else if (!seMovio && duracion < UMBRAL_ROMPER_MS + 100) {
-                    val boton = when {
-                        !cursorAgarrado -> LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT
-                        toqueDerecha -> LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT
-                        else -> LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT
+                if (!seMovio && duracion < 300) {
+                    if (!cursorAgarrado) {
+                        clic(p, LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt())
+                    } else {
+                        val slot = slotHotbarEn(evento.x, evento.y)
+                        if (slot != null) tecla(p, slot)
+                        else clic(p, LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt())
                     }
-                    clic(p, boton.toInt())
                 }
             }
         }
     }
 
+    /**
+     * Si el toque cae sobre la hotbar del juego, devuelve la tecla 1-9 del
+     * slot. Geometria de Minecraft: GUI a escala automatica (la mayor que
+     * mantenga 320x240 visibles), hotbar de 182 unidades centrada abajo.
+     */
+    private fun slotHotbarEn(x: Float, y: Float): Int? {
+        val w = textura.width
+        val h = textura.height
+        if (w == 0 || h == 0) return null
+        val escala = maxOf(1, minOf(w / 320, h / 240))
+        val altoHotbar = 22f * escala + dp(6) // margen tactil tolerante
+        if (y < h - altoHotbar) return null
+        val ancho = 182f * escala
+        val inicio = (w - ancho) / 2f
+        if (x < inicio || x > inicio + ancho) return null
+        val indice = ((x - inicio) / (ancho / 9f)).toInt().coerceIn(0, 8)
+        return intArrayOf(
+            FCLKeycodes.KEY_1, FCLKeycodes.KEY_2, FCLKeycodes.KEY_3,
+            FCLKeycodes.KEY_4, FCLKeycodes.KEY_5, FCLKeycodes.KEY_6,
+            FCLKeycodes.KEY_7, FCLKeycodes.KEY_8, FCLKeycodes.KEY_9,
+        )[indice]
+    }
+
     // ── Teclado del sistema → juego ──────────────────────────────────────────
 
     private fun crearEntradaTexto(): EditText = EditText(this).apply {
+        // Invisible hasta que el teclado se abre; entonces aparece como barra
+        // pegada encima de el (el listener de layout la posiciona).
         alpha = 0f
+        translationY = 6000f
+        setBackgroundColor(0xF0141414.toInt())
+        setTextColor(0xFFFFFFFF.toInt())
+        textSize = 16f
+        maxLines = 1
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(14), 0, dp(14), 0)
         imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
         inputType = android.text.InputType.TYPE_CLASS_TEXT or
             android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS

@@ -27,7 +27,7 @@ class BotonTactil(
 
     enum class Glifo {
         FLECHA_ARRIBA, FLECHA_ABAJO, FLECHA_IZQUIERDA, FLECHA_DERECHA,
-        SALTO, AGACHARSE, CHAT, PAUSA, INVENTARIO, TECLADO,
+        SALTO, AGACHARSE, CHAT, PAUSA, INVENTARIO, TECLADO, GOLPEAR,
     }
 
     private var activo = false
@@ -89,7 +89,31 @@ class BotonTactil(
             Glifo.PAUSA -> pausa(canvas)
             Glifo.INVENTARIO -> inventario(canvas)
             Glifo.TECLADO -> teclado(canvas)
+            Glifo.GOLPEAR -> golpear(canvas)
         }
+    }
+
+    /** Espada estilizada: golpear/romper (mantener = seguir rompiendo). */
+    private fun golpear(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        pintaGlifo.style = Paint.Style.STROKE
+        pintaGlifo.strokeWidth = w * 0.075f
+        // Hoja en diagonal
+        c.drawLine(w * 0.30f, h * 0.70f, w * 0.66f, h * 0.34f, pintaGlifo)
+        pintaGlifo.strokeWidth = w * 0.055f
+        // Guarda perpendicular
+        c.drawLine(w * 0.54f, h * 0.30f, w * 0.72f, h * 0.48f, pintaGlifo)
+        // Empunadura
+        c.drawLine(w * 0.70f, h * 0.30f, w * 0.80f, h * 0.20f, pintaGlifo)
+        // Punta
+        val punta = Path().apply {
+            moveTo(w * 0.24f, h * 0.64f)
+            lineTo(w * 0.20f, h * 0.80f)
+            lineTo(w * 0.36f, h * 0.76f)
+        }
+        pintaGlifo.style = Paint.Style.FILL
+        c.drawPath(punta, pintaGlifo)
     }
 
     /** Flecha maciza tipo Bedrock (triángulo con cola), rotada según dirección. */
