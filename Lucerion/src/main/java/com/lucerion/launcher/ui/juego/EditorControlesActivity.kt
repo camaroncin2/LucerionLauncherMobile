@@ -31,7 +31,9 @@ class EditorControlesActivity : Activity() {
     private lateinit var lienzo: FrameLayout
     private lateinit var diseno: DisenoHud
     private var seleccionado: ControlHud? = null
-    private val velos = HashMap<ControlHud, View>()
+    // Clave por id (inmutable): ControlHud es data class y su hash cambia al
+    // arrastrar (x/y mutan) — como clave de mapa se "perdia" tras moverlo.
+    private val velos = HashMap<String, View>()
     private lateinit var panelTitulo: TextView
     private lateinit var deslizador: SeekBar
     private lateinit var botonBorrar: Button
@@ -104,7 +106,7 @@ class EditorControlesActivity : Activity() {
             val velo = View(this)
             velo.setBackgroundColor(if (c === seleccionado) SELECCION else Color.TRANSPARENT)
             cont.addView(velo, FrameLayout.LayoutParams(tamPx, tamPx))
-            velos[c] = velo
+            velos[c.id] = velo
 
             // Posicion por propiedades x/y (composicion GPU): el arrastre es
             // fluido porque NO se relayoutea nada por cada movimiento.
@@ -145,8 +147,8 @@ class EditorControlesActivity : Activity() {
         }
         deslizador.progress = c.tam - 36
         botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
-        for ((control, velo) in velos) {
-            velo.setBackgroundColor(if (control === c) SELECCION else Color.TRANSPARENT)
+        for (control in diseno.controles) {
+            velos[control.id]?.setBackgroundColor(if (control === c) SELECCION else Color.TRANSPARENT)
         }
     }
 
@@ -176,7 +178,7 @@ class EditorControlesActivity : Activity() {
                         // centro: reconstruir todo por cada tick trababa.
                         seleccionado?.let { c ->
                             c.tam = progreso + 36
-                            val velo = velos[c] ?: return@let
+                            val velo = velos[c.id] ?: return@let
                             val cont = velo.parent as FrameLayout
                             val tamPx = dp((c.tam * escala).toInt())
                             val cx = cont.x + cont.width / 2f
