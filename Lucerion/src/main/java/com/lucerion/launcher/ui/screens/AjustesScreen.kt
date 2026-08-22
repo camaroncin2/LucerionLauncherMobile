@@ -80,17 +80,18 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
     val estadoScroll = androidx.compose.foundation.rememberScrollState()
     androidx.compose.runtime.LaunchedEffect(apartado) { estadoScroll.scrollTo(0) }
 
-    // Datos reales del equipo para orientar la memoria: recomendada = 40 %
-    // de la RAM; limite seguro = 50 % (mas alla, Android empieza a matar la
-    // app bajo presion de memoria).
+    // Datos reales del equipo para orientar la memoria: recomendada = 22 %
+    // de la RAM; limite seguro = 30 %. Cifras medidas en dispositivo, no
+    // estimadas: con el 40 % (lo que habia antes) el sistema entraba en
+    // falta de memoria y mataba la partida al abrir otra app pesada.
     val ramTotalMb = remember {
         val am = contexto.getSystemService(android.content.Context.ACTIVITY_SERVICE)
             as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
         (info.totalMem / 1048576L).toInt()
     }
-    val memoriaRecomendadaMb = (ramTotalMb * 40 / 100).coerceIn(2048, 6144)
-    val limiteSeguroMb = ramTotalMb / 2
+    val memoriaRecomendadaMb = (ramTotalMb * 22 / 100).coerceIn(1536, 2560)
+    val limiteSeguroMb = ramTotalMb * 30 / 100
     var memoriaConfirmada by remember { mutableIntStateOf(RepositorioAjustes.memoriaMb(contexto)) }
     var pedirConfirmacionMemoria by remember { mutableStateOf(false) }
 
@@ -215,13 +216,15 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
             titulo = "Memoria del juego",
             explicacion = "Cuánta RAM puede usar Minecraft. Tu equipo tiene " +
                 "${"%.1f".format(ramTotalMb / 1024f)} GB: la recomendada es " +
-                "${"%.1f".format(memoriaRecomendadaMb / 1024f)} GB (40 %, lo que usa " +
-                "«Automática») y el límite seguro es ${"%.1f".format(limiteSeguroMb / 1024f)} GB " +
-                "(50 %). Por encima de ese límite, Android puede cerrar la app en plena partida.",
+                "${"%.1f".format(memoriaRecomendadaMb / 1024f)} GB, que es lo que usa " +
+                "«Automática». Más no es mejor: el juego no aprovecha el exceso, " +
+                "pero Android sí cuenta esa reserva y cierra la partida cuando " +
+                "necesita memoria para otra app. Por encima de " +
+                "${"%.1f".format(limiteSeguroMb / 1024f)} GB el riesgo es alto.",
             valorTexto = if (memoriaMb == 0) "Automática" else "%.1f GB".format(memoriaMb / 1024f),
             valor = if (memoriaMb == 0) 1.8f else memoriaMb / 1024f,
-            rango = 1.8f..6f,
-            alCambiar = { memoriaMb = if (it < 2f) 0 else (it * 1024).toInt() },
+            rango = 1.4f..4f,
+            alCambiar = { memoriaMb = if (it < 1.6f) 0 else (it * 1024).toInt() },
             alSoltar = {
                 if (memoriaMb > limiteSeguroMb) {
                     pedirConfirmacionMemoria = true

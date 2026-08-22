@@ -45,14 +45,48 @@ object Lanzador {
         kotlinx.coroutines.SupervisorJob() + Dispatchers.Main,
     )
 
-    /** Memoria para la JVM: 40 % de la RAM del equipo, entre 2 y 6 GB. */
+    /**
+     * Memoria para la JVM: 22 % de la RAM del equipo, entre 1.5 y 2.5 GB.
+     *
+     * Antes se pedia el 40 % sin tope real y era un error caro: en un equipo
+     * de 11.5 GB salian 4.4 GB de monton que, con el lado nativo encima
+     * (Zink, Turnip, texturas), daban 5.8 GB residentes — la mitad del
+     * telefono para una sola app. Medido en dispositivo: al pasar a otra app
+     * pesada el sistema entraba en falta de memoria y mataba la partida.
+     *
+     * Minecraft con estos mods a 8 chunks no llega a 2 GB de uso real; el
+     * monton de mas no acelera nada, solo hace que la JVM crezca y retenga
+     * memoria que nunca devuelve. Menos monton = partida que sobrevive.
+     */
     private fun memoriaMb(actividad: Activity): Int {
         val am = actividad.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val info = ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
         val totalMb = (info.totalMem / 1048576L).toInt()
-        return (totalMb * 40 / 100).coerceIn(2048, 6144)
+        return (totalMb * 22 / 100).coerceIn(1536, 2560)
     }
+
+    /**
+     * Banderas de la JVM para que el juego DEVUELVA memoria al sistema
+     * cuando esta minimizado, en vez de acaparar el monton entero de por
+     * vida (JEP 346: recoleccion periodica en reposo que descompromete lo
+     * que sobra). Sin esto, minimizar no bajaba el consumo y Android
+     * terminaba matando la partida al abrir cualquier otra app pesada.
+     *
+     * El ciclo es concurrente a proposito: descomprime memoria sin la pausa
+     * larga de una recoleccion completa, que en medio de una partida se
+     * notaria como un tiron.
+     */
+    private val argumentosJvm = listOf(
+        "-XX:+UseG1GC",
+        "-XX:MaxGCPauseMillis=50",
+        "-XX:G1PeriodicGCInterval=20000",        // revisa cada 20 s
+        "-XX:+G1PeriodicGCInvokesConcurrent",    // sin pausas largas
+        "-XX:G1PeriodicGCSystemLoadThreshold=0", // tambien con el equipo ocupado
+        "-XX:MinHeapFreeRatio=10",               // deja poco holgura...
+        "-XX:MaxHeapFreeRatio=25",               // ...y encoge en cuanto sobra
+        "-XX:+UseStringDeduplication",
+    )
 
     /** Copia los jars auxiliares que DefaultLauncher exige (los desempaqueta FCL en su app). */
     private fun prepararJarsAuxiliares(actividad: Activity) {
@@ -200,7 +234,11 @@ object Lanzador {
             .setWidth(ancho)
             .setHeight(alto)
             .setMaxMemory(memoria)
-            .setMinMemory(1024)
+            // Piso bajo a proposito: es el minimo por debajo del cual la JVM
+            // no encoge. Con 1 GB de piso, el monton nunca bajaba de ahi por
+            // mucho que el juego estuviera minimizado.
+            .setMinMemory(512)
+            .setJavaArguments(argumentosJvm)
             .setVersionName(InstaladorJuego.NOMBRE_VERSION)
             .setProfileName("Lucerion")
             .setServerIp(SERVIDOR) // JUGAR = entrar a Cretania

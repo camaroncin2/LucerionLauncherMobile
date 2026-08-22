@@ -25,7 +25,7 @@ object RepositorioAjustes {
     /** Memoria de la JVM en MB; 0 = automática (40 % de la RAM, entre 2 y 6 GB). */
     fun memoriaMb(c: Context) = prefs(c).getInt("memoria_mb", 0)
     fun guardarMemoriaMb(c: Context, v: Int) =
-        prefs(c).edit().putInt("memoria_mb", if (v == 0) 0 else v.coerceIn(2048, 6144)).apply()
+        prefs(c).edit().putInt("memoria_mb", if (v == 0) 0 else v.coerceIn(1536, 4096)).apply()
 
     fun vsync(c: Context) = prefs(c).getBoolean("vsync", true)
     fun guardarVsync(c: Context, v: Boolean) = prefs(c).edit().putBoolean("vsync", v).apply()
