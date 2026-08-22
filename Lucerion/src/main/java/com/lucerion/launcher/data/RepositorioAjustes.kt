@@ -38,33 +38,46 @@ object RepositorioAjustes {
     fun guardarEscalaRender(c: Context, v: Int) =
         prefs(c).edit().putInt("escala_render", v.coerceIn(50, 100)).apply()
 
-    /**
-     * Techo seguro de memoria del equipo: 30 % de la RAM.
-     *
-     * Medido en dispositivo, no estimado. Con el 40 % el proceso llegaba a 5 GB
-     * residentes, el sistema se quedaba con ~1 GB libre y el kernel empezaba a
-     * comprimir memoria del juego a zram (762 MB en 40 minutos). Comprimir y
-     * descomprimir quema CPU, el CPU calienta y el recorte termico del
-     * fabricante se lleva puestos los FPS. Reservar de mas sale caro.
-     */
-    fun limiteSeguroMb(c: Context): Int {
+    private fun ramTotalMb(c: Context): Int {
         val am = c.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
-        return ((info.totalMem / 1048576L).toInt() * 30 / 100).coerceIn(1536, 4096)
+        return (info.totalMem / 1048576L).toInt()
     }
 
     /**
-     * 0 = automatica. Se vuelve a acotar AL LEER: un valor guardado por una
-     * version anterior podia estar muy por encima de lo que el equipo aguanta,
-     * y ese valor seguia mandando aunque el limite hubiera bajado.
+     * Memoria recomendada: 22 % de la RAM, entre 1.5 y 2.5 GB.
+     *
+     * Es lo que usa «Automática» y cubre el juego normal. No es un techo: en
+     * zonas muy cargadas (un hub lleno de construcción y jugadores) el montón
+     * puede quedarse corto y el recolector empieza a trillar, que se nota como
+     * tirones de un segundo. Por eso se puede subir.
+     */
+    fun memoriaRecomendadaMb(c: Context): Int =
+        (ramTotalMb(c) * 22 / 100).coerceIn(1536, 2560)
+
+    /**
+     * Tope del deslizador: 8 GB, y nunca mas que la RAM del equipo menos 2 GB.
+     *
+     * Los 2 GB de reserva no son por prudencia abstracta: es lo que el sistema
+     * necesita para si mismo. Sin ese margen, en un equipo pequeno se podria
+     * elegir un valor con el que Android mata la partida en cuanto abras
+     * cualquier otra app —o directamente no arranca—.
+     */
+    fun memoriaMaximaMb(c: Context): Int =
+        minOf(8192, ramTotalMb(c) - 2048).coerceIn(2048, 8192)
+
+    /**
+     * 0 = automática. Se vuelve a acotar AL LEER para que un valor guardado
+     * por otra version, o en otro equipo con mas RAM, no quede fuera de rango.
      */
     fun memoriaMb(c: Context): Int {
         val guardada = prefs(c).getInt("memoria_mb", 0)
         if (guardada <= 0) return 0
-        return guardada.coerceIn(1536, limiteSeguroMb(c))
+        return guardada.coerceIn(1536, memoriaMaximaMb(c))
     }
+
     fun guardarMemoriaMb(c: Context, v: Int) =
-        prefs(c).edit().putInt("memoria_mb", if (v == 0) 0 else v.coerceIn(1536, limiteSeguroMb(c))).apply()
+        prefs(c).edit().putInt("memoria_mb", if (v == 0) 0 else v.coerceIn(1536, memoriaMaximaMb(c))).apply()
 
     fun vsync(c: Context) = prefs(c).getBoolean("vsync", true)
     fun guardarVsync(c: Context, v: Boolean) = prefs(c).edit().putBoolean("vsync", v).apply()

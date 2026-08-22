@@ -40,6 +40,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import com.lucerion.launcher.ui.theme.Ambar
 import com.lucerion.launcher.R
 import com.lucerion.launcher.data.EspacioJuego
 import com.lucerion.launcher.data.RepositorioAjustes
@@ -94,8 +98,8 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
         val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
         (info.totalMem / 1048576L).toInt()
     }
-    val memoriaRecomendadaMb = (ramTotalMb * 22 / 100).coerceIn(1536, 2560)
-    val limiteSeguroMb = ramTotalMb * 30 / 100
+    val memoriaRecomendadaMb = RepositorioAjustes.memoriaRecomendadaMb(contexto)
+    val memoriaMaximaMb = RepositorioAjustes.memoriaMaximaMb(contexto)
     var memoriaConfirmada by remember { mutableIntStateOf(RepositorioAjustes.memoriaMb(contexto)) }
 
     // Espacio: medir recorre miles de archivos, asi que va fuera del hilo
@@ -262,18 +266,21 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
             explicacion = "Cuánta RAM puede usar Minecraft. Tu equipo tiene " +
                 "${"%.1f".format(ramTotalMb / 1024f)} GB: la recomendada es " +
                 "${"%.1f".format(memoriaRecomendadaMb / 1024f)} GB, que es lo que usa " +
-                "«Automática». Más no es mejor, y está medido: el juego no " +
-                "aprovecha el exceso, pero tu equipo se queda sin memoria libre y " +
-                "empieza a comprimir la del juego, lo que gasta procesador, " +
-                "calienta y te baja los FPS. El máximo del deslizador " +
-                "(${"%.1f".format(limiteSeguroMb / 1024f)} GB) ya es el techo seguro.",
+                "«Automática» y cubre el juego normal. Puedes subir hasta " +
+                "${"%.1f".format(memoriaMaximaMb / 1024f)} GB: en zonas muy cargadas —un hub " +
+                "lleno de construcción y jugadores— el montón puede quedarse corto y " +
+                "aparecen tirones de un segundo. Pasada la marca de la barra el " +
+                "sistema se queda con menos memoria libre, así que sube solo si " +
+                "notas esos tirones, y comprueba que mejora.",
             valorTexto = if (memoriaMb == 0) "Automática" else "%.1f GB".format(memoriaMb / 1024f),
             valor = if (memoriaMb == 0) 1.8f else memoriaMb / 1024f,
-            // El deslizador no llega al terreno peligroso: por encima del limite
-            // seguro el equipo empieza a comprimir memoria del juego y se pierde
-            // mas rendimiento del que se gana. Antes se podia elegir y el aviso
-            // llegaba tarde, cuando ya estabas jugando peor.
-            rango = 1.4f..(limiteSeguroMb / 1024f),
+            rango = 1.4f..(memoriaMaximaMb / 1024f),
+            // Marca en la barra: hasta aqui es lo recomendado; pasado esto se
+            // puede, pero conviene comprobar que de verdad mejora.
+            marca = memoriaRecomendadaMb / 1024f,
+            textoMarca = "recomendado hasta " +
+                "${"%.1f".format(memoriaRecomendadaMb / 1024f)} GB \u00b7 " +
+                "más allá, comprueba que mejora",
             alCambiar = { memoriaMb = if (it < 1.6f) 0 else (it * 1024).toInt() },
             alSoltar = {
                 if (memoriaMb > memoriaRecomendadaMb) {
@@ -293,12 +300,17 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
                 title = { Text("Más de lo recomendado", color = OroClaro) },
                 text = {
                     Text(
-                        "Pediste %.1f GB y lo recomendado para tu equipo es %.1f GB. ".format(
+                        "Pediste %.1f GB y lo recomendado para tu equipo es %.1f GB.\n\n".format(
                             memoriaMb / 1024f, memoriaRecomendadaMb / 1024f,
-                        ) + "Reservar de más no acelera el juego —no usa ni la mitad de lo " +
-                            "que ya tiene—, pero deja al sistema sin memoria libre: empieza " +
-                            "a comprimir la del juego, eso gasta procesador, calienta y te " +
-                            "baja los FPS. ¿Continuar igualmente?",
+                        ) + "Puede ayudarte: en zonas muy cargadas el montón se queda corto y " +
+                            "aparecen tirones de un segundo, que es el recolector de basura " +
+                            "trabajando de más.\n\n" +
+                            "Pero no es gratis. Cuanta más reserves, menos memoria libre le " +
+                            "queda al sistema; cuando se le acaba empieza a comprimir la del " +
+                            "juego, y eso gasta procesador, calienta y te baja los FPS. El " +
+                            "punto justo depende de dónde juegues.\n\n" +
+                            "Súbela, juega un rato en el sitio donde te iba mal y comprueba " +
+                            "si de verdad mejora. Si no cambia nada, vuelve a «Automática».",
                         color = TextoSuave,
                     )
                 },
@@ -617,6 +629,9 @@ private fun FilaDeslizador(
     rango: ClosedFloatingPointRange<Float>,
     alCambiar: (Float) -> Unit,
     alSoltar: () -> Unit,
+    /** Valor donde termina la zona recomendada; null = sin marca. */
+    marca: Float? = null,
+    textoMarca: String? = null,
 ) {
     Tarjeta {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -637,6 +652,52 @@ private fun FilaDeslizador(
                     inactiveTrackColor = OroProfundo.copy(alpha = 0.35f),
                 ),
             )
+            if (marca != null) {
+                val fraccion = ((marca - rango.start) /
+                    (rango.endInclusive - rango.start)).coerceIn(0f, 1f)
+                // Regla justo debajo del deslizador. El relleno lateral de 10 dp
+                // replica el que deja el propio control para el pulsador, para
+                // que la marca caiga en el mismo sitio que en la barra.
+                Box(
+                    Modifier
+                        .widthIn(max = 420.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp),
+                ) {
+                    Canvas(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(7.dp),
+                    ) {
+                        val x = size.width * fraccion
+                        drawRect(
+                            color = OroProfundo.copy(alpha = 0.45f),
+                            topLeft = Offset(0f, size.height / 2f - 1.5f),
+                            size = Size(x, 3f),
+                        )
+                        // Zona por encima de lo recomendado: se ve distinta, no
+                        // prohibida. Se puede usar, pero hay que comprobarla.
+                        drawRect(
+                            color = Ambar.copy(alpha = 0.5f),
+                            topLeft = Offset(x, size.height / 2f - 1.5f),
+                            size = Size(size.width - x, 3f),
+                        )
+                        drawLine(
+                            color = Ambar,
+                            start = Offset(x, 0f),
+                            end = Offset(x, size.height),
+                            strokeWidth = 2.dp.toPx(),
+                        )
+                    }
+                }
+                if (textoMarca != null) {
+                    Text(
+                        textoMarca,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextoSuave,
+                    )
+                }
+            }
         }
     }
 }

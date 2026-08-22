@@ -64,13 +64,8 @@ object Lanzador {
      * monton de mas no acelera nada, solo hace que la JVM crezca y retenga
      * memoria que nunca devuelve. Menos monton = partida que sobrevive.
      */
-    private fun memoriaMb(actividad: Activity): Int {
-        val am = actividad.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val info = ActivityManager.MemoryInfo()
-        am.getMemoryInfo(info)
-        val totalMb = (info.totalMem / 1048576L).toInt()
-        return (totalMb * 22 / 100).coerceIn(1536, 2560)
-    }
+    private fun memoriaMb(actividad: Activity): Int =
+        com.lucerion.launcher.data.RepositorioAjustes.memoriaRecomendadaMb(actividad)
 
     /**
      * Banderas de la JVM para que el juego DEVUELVA memoria al sistema
