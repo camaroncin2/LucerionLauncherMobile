@@ -396,6 +396,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     //  · En menus/inventario: mantener = clic DERECHO (dividir stack a la
     //    mitad, colocar de a uno) — como mantener en Bedrock.
     //  · En juego sobre la hotbar: mantener = soltar ese item (slot + Q).
+    //  · En juego en el resto de la pantalla: mantener = clic derecho
+    //    SOSTENIDO hasta soltar el dedo — comer, beber, arco, escudo.
+    private var sosteniendoDerecho = false
+
     private val toqueLargo = Runnable {
         val p = puente ?: return@Runnable
         if (seMovio) return@Runnable
@@ -408,6 +412,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 toqueLargoHecho = true
                 tecla(p, slot)           // primero elegirlo…
                 tecla(p, FCLKeycodes.KEY_Q) // …y soltarlo (tecla() encadena solo)
+            } else {
+                toqueLargoHecho = true
+                sosteniendoDerecho = true
+                p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), true)
             }
         }
     }
@@ -419,6 +427,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 inicioToque = System.currentTimeMillis()
                 seMovio = false
                 toqueLargoHecho = false
+                sosteniendoDerecho = false
                 ultimoX = evento.x
                 ultimoY = evento.y
                 if (!cursorAgarrado) {
@@ -450,6 +459,11 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 handler.removeCallbacks(toqueLargo)
+                if (sosteniendoDerecho) {
+                    // Fin de comer/beber/apuntar: soltar el clic derecho.
+                    p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
+                    sosteniendoDerecho = false
+                }
                 val duracion = System.currentTimeMillis() - inicioToque
                 if (!toqueLargoHecho && !seMovio && duracion < 300) {
                     if (!cursorAgarrado) {
