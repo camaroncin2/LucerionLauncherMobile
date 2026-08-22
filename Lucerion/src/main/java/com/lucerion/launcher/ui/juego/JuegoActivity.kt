@@ -62,6 +62,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         private const val UMBRAL_ROMPER_MS = 250L
         private const val UMBRAL_MOVIMIENTO_PX2 = 100f
         private const val TAM_BOTON_MENU = 46
+        private const val VELO_NORMAL = 0x332E9BD6
+        private const val VELO_ELEGIDO = 0x662E9BD6
     }
 
     private var cursorAgarrado = false
@@ -438,7 +440,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private fun crearVelosEdicion() {
         for ((c, vista) in controlesEnPantalla) {
             val lp = vista.layoutParams as FrameLayout.LayoutParams
-            val velo = View(this).apply { setBackgroundColor(0x332E9BD6) }
+            val velo = View(this).apply { setBackgroundColor(VELO_NORMAL) }
+            // MISMOS margenes y MISMA traslacion que el control: mezclar
+            // margen con setX duplicaba el desplazamiento y las capas
+            // aparecian corridas respecto a los botones.
             raiz.addView(
                 velo,
                 FrameLayout.LayoutParams(lp.width, lp.height).also {
@@ -446,8 +451,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     it.topMargin = lp.topMargin
                 },
             )
-            velo.x = vista.x
-            velo.y = vista.y
+            velo.translationX = vista.translationX
+            velo.translationY = vista.translationY
             velosEdicion[c.id] = velo
 
             var dX = 0f
@@ -488,113 +493,107 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         actualizarTituloEdicion(c)
         sliderEdicion?.progress = c.tam - 36
         sliderOpacidadEdicion?.progress = ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85)
-        botonBorrarEdicion?.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
+        botonBorrarEdicion?.visibility = if (c.tipo == "tecla") View.VISIBLE else View.INVISIBLE
         for ((id, velo) in velosEdicion) {
-            velo.setBackgroundColor(if (id == c.id) 0x662E9BD6 else 0x332E9BD6)
+            velo.setBackgroundColor(if (id == c.id) VELO_ELEGIDO else VELO_NORMAL)
         }
     }
 
     private fun mostrarBarraEdicion() {
+        // Barra HORIZONTAL y compacta: en apaisado la versión apilada medía
+        // más que la pantalla y los botones quedaban fuera.
         val barra = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xE60C1424.toInt())
-            setPadding(dp(16), dp(10), dp(16), dp(12))
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(0xF00C1424.toInt())
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            gravity = Gravity.CENTER_VERTICAL
         }
+
+        val columnaSliders = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val titulo = android.widget.TextView(this).apply {
-            text = "Toca un control y arrastralo"
+            text = "Toca un control y arrástralo"
             setTextColor(0xFFE8C06A.toInt())
-            textSize = 13f
+            textSize = 12f
         }
-        barra.addView(titulo)
+        columnaSliders.addView(titulo)
         tituloEdicion = titulo
 
-        // Tamano
-        barra.addView(
-            android.widget.TextView(this).apply {
-                text = "Tamano"
-                setTextColor(0xB3C8D0E0.toInt())
-                textSize = 11f
-            },
-        )
-        val slider = android.widget.SeekBar(this).apply {
-            max = 184 // 36..220 dp
-            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: android.widget.SeekBar?, progreso: Int, delUsuario: Boolean) {
-                    if (!delUsuario) return
-                    val c = seleccionEdicion ?: return
-                    c.tam = progreso + 36
-                    actualizarTituloEdicion(c)
-                    redimensionarEnEdicion(c)
-                }
-                override fun onStartTrackingTouch(sb: android.widget.SeekBar?) = Unit
-                override fun onStopTrackingTouch(sb: android.widget.SeekBar?) = Unit
-            })
-        }
-        barra.addView(slider, LinearLayout.LayoutParams(dp(240), LinearLayout.LayoutParams.WRAP_CONTENT))
-        sliderEdicion = slider
-
-        // Opacidad: lo justo para que el control se vea sin tapar el mundo.
-        barra.addView(
-            android.widget.TextView(this).apply {
-                text = "Opacidad"
-                setTextColor(0xB3C8D0E0.toInt())
-                textSize = 11f
-            },
-        )
-        val sliderOpacidad = android.widget.SeekBar(this).apply {
-            max = 85 // 15..100 %
-            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: android.widget.SeekBar?, progreso: Int, delUsuario: Boolean) {
-                    if (!delUsuario) return
-                    val c = seleccionEdicion ?: return
-                    c.opacidad = (progreso + 15) / 100f
-                    actualizarTituloEdicion(c)
-                    controlesEnPantalla.firstOrNull { it.first === c }?.second?.alpha = c.opacidad
-                }
-                override fun onStartTrackingTouch(sb: android.widget.SeekBar?) = Unit
-                override fun onStopTrackingTouch(sb: android.widget.SeekBar?) = Unit
-            })
-        }
-        barra.addView(sliderOpacidad, LinearLayout.LayoutParams(dp(240), LinearLayout.LayoutParams.WRAP_CONTENT))
-        sliderOpacidadEdicion = sliderOpacidad
-
-        val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        fila.addView(
-            android.widget.Button(this).apply {
-                text = "+ BOTON"
-                textSize = 11f
-                setOnClickListener { dialogoNuevoBotonEnJuego() }
-            },
-        )
-        val borrar = android.widget.Button(this).apply {
-            text = "BORRAR"
-            textSize = 11f
-            visibility = View.GONE
-            setOnClickListener {
-                val c = seleccionEdicion ?: return@setOnClickListener
-                if (c.tipo != "tecla") return@setOnClickListener
-                diseno.controles.remove(c)
-                seleccionEdicion = null
-                rehacerEdicion()
+        fun filaSlider(etiqueta: String, maximo: Int, alCambiar: (Int) -> Unit): android.widget.SeekBar {
+            val fila = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
             }
+            fila.addView(
+                android.widget.TextView(this).apply {
+                    text = etiqueta
+                    setTextColor(0xB3C8D0E0.toInt())
+                    textSize = 11f
+                    width = dp(64)
+                },
+            )
+            val sb = android.widget.SeekBar(this).apply {
+                max = maximo
+                setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(s: android.widget.SeekBar?, progreso: Int, delUsuario: Boolean) {
+                        if (delUsuario) alCambiar(progreso)
+                    }
+                    override fun onStartTrackingTouch(s: android.widget.SeekBar?) = Unit
+                    override fun onStopTrackingTouch(s: android.widget.SeekBar?) = Unit
+                })
+            }
+            fila.addView(sb, LinearLayout.LayoutParams(dp(180), LinearLayout.LayoutParams.WRAP_CONTENT))
+            columnaSliders.addView(fila)
+            return sb
         }
-        fila.addView(borrar)
+
+        sliderEdicion = filaSlider("Tamaño", 184) { progreso ->
+            val c = seleccionEdicion ?: return@filaSlider
+            c.tam = progreso + 36
+            actualizarTituloEdicion(c)
+            redimensionarEnEdicion(c)
+        }
+        sliderOpacidadEdicion = filaSlider("Opacidad", 85) { progreso ->
+            val c = seleccionEdicion ?: return@filaSlider
+            c.opacidad = (progreso + 15) / 100f
+            actualizarTituloEdicion(c)
+            controlesEnPantalla.firstOrNull { it.first === c }?.second?.alpha = c.opacidad
+        }
+        barra.addView(columnaSliders)
+
+        // Botones en dos filas cortas: caben sin partir palabras.
+        val columnaBotones = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+        }
+        fun boton(texto: String, alPulsar: () -> Unit): android.widget.Button =
+            android.widget.Button(this).apply {
+                this.text = texto
+                textSize = 10f
+                minWidth = dp(96)
+                minimumWidth = dp(96)
+                setPadding(dp(6), 0, dp(6), 0)
+                setOnClickListener { alPulsar() }
+            }
+
+        val filaArriba = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        filaArriba.addView(boton("+ BOTÓN") { dialogoNuevoBotonEnJuego() })
+        val borrar = boton("BORRAR") {
+            val c = seleccionEdicion ?: return@boton
+            if (c.tipo != "tecla") return@boton
+            diseno.controles.remove(c)
+            seleccionEdicion = null
+            rehacerEdicion()
+        }.apply { visibility = View.INVISIBLE } // reserva su hueco: la barra no salta
+        filaArriba.addView(borrar)
         botonBorrarEdicion = borrar
-        fila.addView(
-            android.widget.Button(this).apply {
-                text = "GUARDAR"
-                textSize = 11f
-                setOnClickListener { salirModoEdicion(guardar = true) }
-            },
-        )
-        fila.addView(
-            android.widget.Button(this).apply {
-                text = "DESCARTAR"
-                textSize = 11f
-                setOnClickListener { salirModoEdicion(guardar = false) }
-            },
-        )
-        barra.addView(fila)
+        columnaBotones.addView(filaArriba)
+
+        val filaAbajo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        filaAbajo.addView(boton("GUARDAR") { salirModoEdicion(guardar = true) })
+        filaAbajo.addView(boton("DESCARTAR") { salirModoEdicion(guardar = false) })
+        columnaBotones.addView(filaAbajo)
+
+        barra.addView(columnaBotones)
 
         raiz.addView(
             barra,
@@ -602,7 +601,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
-            ),
+            ).apply { bottomMargin = dp(10) },
         )
         barraEdicion = barra
     }
@@ -659,7 +658,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         construirHud()
         crearVelosEdicion()
         botonBorrarEdicion?.visibility =
-            if (seleccionEdicion?.tipo == "tecla") View.VISIBLE else View.GONE
+            if (seleccionEdicion?.tipo == "tecla") View.VISIBLE else View.INVISIBLE
         barraEdicion?.bringToFront()
     }
 
@@ -668,16 +667,24 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         val vista = controlesEnPantalla.firstOrNull { it.first === c }?.second ?: return
         val velo = velosEdicion[c.id]
         val tamPx = dpc(c.tam)
+        // Centro actual en coordenadas de la raiz.
         val cx = vista.x + vista.width / 2f
         val cy = vista.y + vista.height / 2f
         val nx = (cx - tamPx / 2f).coerceIn(0f, maxOf(0f, (raiz.width - tamPx).toFloat()))
         val ny = (cy - tamPx / 2f).coerceIn(0f, maxOf(0f, (raiz.height - tamPx).toFloat()))
+
         for (v in listOfNotNull(vista, velo)) {
-            v.layoutParams = FrameLayout.LayoutParams(tamPx, tamPx)
-            v.post {
-                v.x = nx
-                v.y = ny
+            val lp = v.layoutParams as FrameLayout.LayoutParams
+            // Conservar los margenes: crear los LayoutParams de cero los ponia
+            // a cero y el control saltaba a la esquina.
+            v.layoutParams = FrameLayout.LayoutParams(tamPx, tamPx).also {
+                it.leftMargin = lp.leftMargin
+                it.topMargin = lp.topMargin
             }
+            // Traslacion relativa al margen: asi la posicion vale desde ya,
+            // sin esperar a que el sistema recalcule el layout.
+            v.translationX = nx - lp.leftMargin
+            v.translationY = ny - lp.topMargin
         }
         c.x = (nx + tamPx / 2f) / raiz.width
         c.y = (ny + tamPx / 2f) / raiz.height
