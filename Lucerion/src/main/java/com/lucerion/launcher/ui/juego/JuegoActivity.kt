@@ -63,7 +63,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
          *  sin controles y las dos peleando por la memoria. */
         fun partidaEnCurso(): Boolean = enEjecucion && puente != null
 
-        private const val UMBRAL_ROMPER_MS = 250L
         private const val UMBRAL_MOVIMIENTO_PX2 = 100f
         private const val TAM_BOTON_MENU = 46
         private const val VELO_NORMAL = 0x332E9BD6
@@ -195,6 +194,15 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      * a cruceta) sin tocar la partida en curso.
      */
     private fun construirHud() {
+        // La contabilidad de W/A/S/D pertenece a los controles que se van:
+        // heredarla dejaba al personaje andando hacia un lado sin que el
+        // control nuevo pudiera volver a enviar el press.
+        val p = puente
+        for ((codigo, pulsada) in movimientoActivo) {
+            if (pulsada) p?.pushEventKey(codigo, 0, false)
+        }
+        movimientoActivo.keys.forEach { movimientoActivo[it] = false }
+
         controlesEnPantalla.forEach { (_, v) -> raiz.removeView(v) }
         controlesEnPantalla.clear()
 
@@ -359,7 +367,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     }
 
     private fun alternarMenu() {
-        if (panelMenu != null) cerrarMenu() else abrirMenu()
+        // En modo edicion el engranaje era un boton muerto y sin explicacion:
+        // ahora sirve de salida (descartando, como el boton DESCARTAR).
+        when {
+            modoEdicion -> salirModoEdicion(guardar = false)
+            panelMenu != null -> cerrarMenu()
+            else -> abrirMenu()
+        }
     }
 
     private fun cerrarMenu() {
@@ -1006,6 +1020,17 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 p.pushEventPointer(cursorX, cursorY)
             }
 
+            // Un segundo dedo levantandose dejaba el clic derecho pegado y la
+            // camara saltaba al otro dedo: se trata como fin de gesto.
+            MotionEvent.ACTION_POINTER_UP -> {
+                handler.removeCallbacks(toqueLargo)
+                if (sosteniendoDerecho) {
+                    p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
+                    sosteniendoDerecho = false
+                }
+                seMovio = true // ya no cuenta como toque corto
+            }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 handler.removeCallbacks(toqueLargo)
                 if (sosteniendoDerecho) {
@@ -1151,7 +1176,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        puente?.let { tecla(it, FCLKeycodes.KEY_ESC) }
+        // Atras cierra primero lo que este abierto en la app; solo cuando no
+        // hay nada propio abierto llega al juego como ESC. Antes, editando el
+        // HUD abrias ademas el menu de pausa DEBAJO de la barra de edicion.
+        when {
+            modoEdicion -> salirModoEdicion(guardar = false)
+            panelMenu != null -> cerrarMenu()
+            else -> puente?.let { tecla(it, FCLKeycodes.KEY_ESC) }
+        }
     }
 
     // ── Foco y visibilidad de la ventana GLFW (paridad con FCL) ─────────────
