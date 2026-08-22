@@ -38,7 +38,7 @@ class BotonTactil(
 
     enum class Glifo {
         FLECHA_ARRIBA, FLECHA_ABAJO, FLECHA_IZQUIERDA, FLECHA_DERECHA,
-        SALTO, AGACHARSE, CHAT, PAUSA, INVENTARIO, TECLADO, GOLPEAR,
+        SALTO, AGACHARSE, CHAT, PAUSA, INVENTARIO, TECLADO, GOLPEAR, ENGRANAJE,
     }
 
     private var activo = false
@@ -141,7 +141,36 @@ class BotonTactil(
             Glifo.INVENTARIO -> inventario(canvas)
             Glifo.TECLADO -> teclado(canvas)
             Glifo.GOLPEAR -> golpear(canvas)
+            Glifo.ENGRANAJE -> engranaje(canvas)
         }
+    }
+
+    /** Engranaje: el menu del juego — la marca de Lucerion hecha boton. */
+    private fun engranaje(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val cx = w / 2f
+        val cy = h / 2f
+        val rDiente = w * 0.34f
+        pintaGlifo.style = Paint.Style.FILL
+        // Ocho dientes alrededor del cubo.
+        for (i in 0 until 8) {
+            val ang = Math.toRadians(i * 45.0)
+            val dx = Math.cos(ang).toFloat()
+            val dy = Math.sin(ang).toFloat()
+            c.save()
+            c.rotate(i * 45f, cx, cy)
+            c.drawRoundRect(
+                RectF(cx - w * 0.055f, cy - rDiente - w * 0.075f, cx + w * 0.055f, cy - rDiente + w * 0.03f),
+                w * 0.02f, w * 0.02f, pintaGlifo,
+            )
+            c.restore()
+        }
+        pintaGlifo.style = Paint.Style.STROKE
+        pintaGlifo.strokeWidth = w * 0.085f
+        c.drawCircle(cx, cy, rDiente * 0.78f, pintaGlifo)
+        pintaGlifo.strokeWidth = w * 0.055f
+        c.drawCircle(cx, cy, rDiente * 0.30f, pintaGlifo)
     }
 
     /** Espada estilizada: golpear/romper (mantener = seguir rompiendo). */

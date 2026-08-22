@@ -72,6 +72,20 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var tecladoVisible = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    // Raiz y HUD reconstruible: el menu del juego permite editar los controles
+    // en plena partida, asi que hay que poder rehacerlos sin reiniciar nada.
+    private lateinit var raiz: FrameLayout
+    private var diseno = com.lucerion.launcher.data.RepositorioDiseno.porDefecto()
+    private val controlesEnPantalla = mutableListOf<Pair<com.lucerion.launcher.data.ControlHud, View>>()
+    private val velosEdicion = mutableMapOf<String, View>()
+    private var modoEdicion = false
+    private var panelMenu: View? = null
+    private var barraEdicion: LinearLayout? = null
+    private var tituloEdicion: android.widget.TextView? = null
+    private var sliderEdicion: android.widget.SeekBar? = null
+    private var seleccionEdicion: com.lucerion.launcher.data.ControlHud? = null
+    private var botonMenu: View? = null
+
     // ── Ciclo de vida y layout ───────────────────────────────────────────────
 
     @SuppressLint("ClickableViewAccessibility")
@@ -97,7 +111,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
-        val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
         textura = TextureView(this).apply {
             surfaceTextureListener = this@JuegoActivity
@@ -120,13 +134,61 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(44), Gravity.TOP),
         )
 
-        // HUD construido desde el diseno editable (Ajustes -> Controles ->
-        // editor con previsualizacion). Posiciones en fraccion de pantalla.
-        val diseno = com.lucerion.launcher.data.RepositorioDiseno.cargar(this)
-        val metricas = resources.displayMetrics
-        val anchoP = maxOf(metricas.widthPixels, metricas.heightPixels)
-        val altoP = minOf(metricas.widthPixels, metricas.heightPixels)
+        diseno = com.lucerion.launcher.data.RepositorioDiseno.cargar(this)
+        construirHud()
+        botonMenu = crearBotonMenu()
+        raiz.addView(botonMenu, FrameLayout.LayoutParams(dp(44), dp(44)))
+
+        setContentView(raiz)
+
+        // Mantener viva la partida al minimizar: sin servicio en primer
+        // plano, Android mata este proceso (la JVM vive aqui) en segundos.
+        startForegroundService(android.content.Intent(this, com.lucerion.launcher.motor.ServicioJuego::class.java))
+
+        // El juego queda a TAMANO COMPLETO siempre; cuando el teclado se abre,
+        // la barra de entrada aparece pegada justo encima de el mostrando lo
+        // que escribes (el teclado tapa la parte baja del juego, nada mas).
+        window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
+            val alturaPantalla = window.decorView.height
+            if (alturaPantalla == 0) return@addOnGlobalLayoutListener
+            val visible = android.graphics.Rect()
+            window.decorView.getWindowVisibleDisplayFrame(visible)
+            if (alturaPantalla * 2 / 3 > visible.bottom) {
+                tecladoVisible = true
+                entradaTexto.alpha = 1f
+                entradaTexto.translationY = (visible.bottom - dp(44)).toFloat()
+            } else if (tecladoVisible) {
+                tecladoVisible = false
+                entradaTexto.alpha = 0f
+                entradaTexto.translationY = 6000f
+            }
+        }
+    }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    // ── HUD reconstruible ────────────────────────────────────────────────────
+
+    private fun anchoPantalla() = maxOf(
+        resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels,
+    )
+
+    private fun altoPantalla() = minOf(
+        resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels,
+    )
+
+    /**
+     * Crea los controles a partir del diseno guardado. Se puede llamar tantas
+     * veces como haga falta (al salir del modo edicion, al cambiar de palanca
+     * a cruceta) sin tocar la partida en curso.
+     */
+    private fun construirHud() {
+        controlesEnPantalla.forEach { (_, v) -> raiz.removeView(v) }
+        controlesEnPantalla.clear()
+
         val usarCruceta = com.lucerion.launcher.data.RepositorioAjustes.usarCruceta(this)
+        val anchoP = anchoPantalla()
+        val altoP = altoPantalla()
 
         fun coloca(v: View, c: com.lucerion.launcher.data.ControlHud) {
             val tamPx = dpc(c.tam)
@@ -134,6 +196,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             lp.leftMargin = (c.x * anchoP - tamPx / 2f).toInt().coerceIn(0, maxOf(0, anchoP - tamPx))
             lp.topMargin = (c.y * altoP - tamPx / 2f).toInt().coerceIn(0, maxOf(0, altoP - tamPx))
             raiz.addView(v, lp)
+            controlesEnPantalla += c to v
         }
 
         for (c in diseno.controles) {
@@ -207,34 +270,315 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 c.id == "teclado" -> coloca(BotonTactil(this, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }), c)
             }
         }
+        // Los controles recien creados quedarian sobre el engranaje y lo
+        // taparian: el menu siempre manda en la capa de arriba.
+        botonMenu?.bringToFront()
+    }
 
-        setContentView(raiz)
+    // ── Engranaje flotante y menu del juego ──────────────────────────────────
 
-        // Mantener viva la partida al minimizar: sin servicio en primer
-        // plano, Android mata este proceso (la JVM vive aqui) en segundos.
-        startForegroundService(android.content.Intent(this, com.lucerion.launcher.motor.ServicioJuego::class.java))
+    /**
+     * Boton flotante del menu: se arrastra a donde no moleste (su sitio queda
+     * guardado) y al tocarlo despliega el menu del juego. Distingue toque de
+     * arrastre por distancia, asi moverlo nunca abre el menu sin querer.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun crearBotonMenu(): View {
+        val prefs = getSharedPreferences("lucerion", MODE_PRIVATE)
+        val boton = BotonTactil(this, BotonTactil.Glifo.ENGRANAJE, alPresionar = {})
+        boton.alpha = 0.75f
 
-        // El juego queda a TAMANO COMPLETO siempre; cuando el teclado se abre,
-        // la barra de entrada aparece pegada justo encima de el mostrando lo
-        // que escribes (el teclado tapa la parte baja del juego, nada mas).
-        window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
-            val alturaPantalla = window.decorView.height
-            if (alturaPantalla == 0) return@addOnGlobalLayoutListener
-            val visible = android.graphics.Rect()
-            window.decorView.getWindowVisibleDisplayFrame(visible)
-            if (alturaPantalla * 2 / 3 > visible.bottom) {
-                tecladoVisible = true
-                entradaTexto.alpha = 1f
-                entradaTexto.translationY = (visible.bottom - dp(44)).toFloat()
-            } else if (tecladoVisible) {
-                tecladoVisible = false
-                entradaTexto.alpha = 0f
-                entradaTexto.translationY = 6000f
+        var dX = 0f
+        var dY = 0f
+        var arrastro = false
+        boton.post {
+            boton.x = prefs.getFloat("menu_x", (anchoPantalla() - dp(56)).toFloat())
+            boton.y = prefs.getFloat("menu_y", (altoPantalla() / 2f) - dp(22))
+        }
+        boton.setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dX = e.rawX - v.x
+                    dY = e.rawY - v.y
+                    arrastro = false
+                    v.alpha = 1f
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val nx = e.rawX - dX
+                    val ny = e.rawY - dY
+                    if (Math.abs(nx - v.x) > dp(3) || Math.abs(ny - v.y) > dp(3)) arrastro = true
+                    v.x = nx.coerceIn(0f, maxOf(0f, (raiz.width - v.width).toFloat()))
+                    v.y = ny.coerceIn(0f, maxOf(0f, (raiz.height - v.height).toFloat()))
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.alpha = 0.75f
+                    prefs.edit().putFloat("menu_x", v.x).putFloat("menu_y", v.y).apply()
+                    if (!arrastro) alternarMenu()
+                }
             }
+            true
+        }
+        return boton
+    }
+
+    private fun alternarMenu() {
+        if (panelMenu != null) cerrarMenu() else abrirMenu()
+    }
+
+    private fun cerrarMenu() {
+        panelMenu?.let { raiz.removeView(it) }
+        panelMenu = null
+    }
+
+    /** Panel semitransparente con las acciones disponibles en partida. */
+    private fun abrirMenu() {
+        if (modoEdicion) return
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xE60C1424.toInt()) // navy translucido
+            setPadding(dp(18), dp(14), dp(18), dp(16))
+        }
+        panel.addView(
+            android.widget.TextView(this).apply {
+                text = "Menu de Lucerion"
+                setTextColor(0xFFE8C06A.toInt())
+                textSize = 16f
+            },
+        )
+        panel.addView(
+            android.widget.TextView(this).apply {
+                text = "La partida sigue corriendo detras."
+                setTextColor(0xB3C8D0E0.toInt())
+                textSize = 12f
+                setPadding(0, 0, 0, dp(10))
+            },
+        )
+
+        fun opcion(titulo: String, detalle: String, alPulsar: () -> Unit) {
+            panel.addView(
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(10), dp(9), dp(10), dp(9))
+                    setBackgroundColor(0x80111C31.toInt())
+                    isClickable = true
+                    setOnClickListener { alPulsar() }
+                    addView(
+                        android.widget.TextView(context).apply {
+                            text = titulo
+                            setTextColor(0xFFE8C06A.toInt())
+                            textSize = 14f
+                        },
+                    )
+                    addView(
+                        android.widget.TextView(context).apply {
+                            text = detalle
+                            setTextColor(0xB3C8D0E0.toInt())
+                            textSize = 11f
+                        },
+                    )
+                },
+                LinearLayout.LayoutParams(dp(250), LinearLayout.LayoutParams.WRAP_CONTENT)
+                    .apply { bottomMargin = dp(8) },
+            )
+        }
+
+        opcion("Editar controles aqui mismo", "Mueve y redimensiona los botones sobre la partida.") {
+            cerrarMenu()
+            entrarModoEdicion()
+        }
+        val usandoCruceta = com.lucerion.launcher.data.RepositorioAjustes.usarCruceta(this)
+        opcion(
+            if (usandoCruceta) "Cambiar a palanca" else "Cambiar a cruceta",
+            if (usandoCruceta) "Palanca: diagonales y correr con doble toque."
+            else "Cruceta: cuatro flechas fijas, mas precision de boton.",
+        ) {
+            com.lucerion.launcher.data.RepositorioAjustes.guardarUsarCruceta(this, !usandoCruceta)
+            cerrarMenu()
+            construirHud()
+        }
+        opcion("Abrir el teclado", "Para escribir en el chat o en carteles.") {
+            cerrarMenu()
+            abrirTeclado()
+        }
+        opcion("Cerrar el menu", "Vuelve a la partida.") { cerrarMenu() }
+
+        raiz.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER,
+            ),
+        )
+        panelMenu = panel
+    }
+
+    // ── Edicion del HUD sobre la partida ─────────────────────────────────────
+
+    /**
+     * Modo edicion in situ: cada control recibe encima una capa que lo hace
+     * arrastrable (y lo desconecta del juego mientras dure). Abajo aparece la
+     * barra con el tamano del control elegido y guardar o descartar.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun entrarModoEdicion() {
+        if (modoEdicion) return
+        modoEdicion = true
+        seleccionEdicion = null
+        velosEdicion.clear()
+
+        for ((c, vista) in controlesEnPantalla) {
+            val lp = vista.layoutParams as FrameLayout.LayoutParams
+            val velo = View(this).apply { setBackgroundColor(0x332E9BD6) }
+            raiz.addView(
+                velo,
+                FrameLayout.LayoutParams(lp.width, lp.height).also {
+                    it.leftMargin = lp.leftMargin
+                    it.topMargin = lp.topMargin
+                },
+            )
+            velosEdicion[c.id] = velo
+
+            var dX = 0f
+            var dY = 0f
+            velo.setOnTouchListener { v, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        seleccionarEnEdicion(c)
+                        dX = e.rawX - v.x
+                        dY = e.rawY - v.y
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val nx = (e.rawX - dX).coerceIn(0f, maxOf(0f, (raiz.width - v.width).toFloat()))
+                        val ny = (e.rawY - dY).coerceIn(0f, maxOf(0f, (raiz.height - v.height).toFloat()))
+                        v.x = nx
+                        v.y = ny
+                        vista.x = nx
+                        vista.y = ny
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        c.x = (v.x + v.width / 2f) / raiz.width
+                        c.y = (v.y + v.height / 2f) / raiz.height
+                    }
+                }
+                true
+            }
+        }
+        mostrarBarraEdicion()
+    }
+
+    private fun etiquetaDe(c: com.lucerion.launcher.data.ControlHud): String = when {
+        c.tipo == "tecla" -> "Boton " + (c.etiqueta ?: "?")
+        c.id == "movimiento" -> "Movimiento"
+        else -> c.id.replaceFirstChar { it.uppercase() }
+    }
+
+    private fun seleccionarEnEdicion(c: com.lucerion.launcher.data.ControlHud) {
+        seleccionEdicion = c
+        tituloEdicion?.text = etiquetaDe(c) + "  ·  " + c.tam + " dp"
+        sliderEdicion?.progress = c.tam - 36
+        for ((id, velo) in velosEdicion) {
+            velo.setBackgroundColor(if (id == c.id) 0x662E9BD6 else 0x332E9BD6)
         }
     }
 
-    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+    private fun mostrarBarraEdicion() {
+        val barra = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xE60C1424.toInt())
+            setPadding(dp(16), dp(10), dp(16), dp(12))
+        }
+        val titulo = android.widget.TextView(this).apply {
+            text = "Toca un control y arrastralo"
+            setTextColor(0xFFE8C06A.toInt())
+            textSize = 13f
+        }
+        barra.addView(titulo)
+        tituloEdicion = titulo
+
+        val slider = android.widget.SeekBar(this).apply {
+            max = 184 // 36..220 dp
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: android.widget.SeekBar?, progreso: Int, delUsuario: Boolean) {
+                    if (!delUsuario) return
+                    val c = seleccionEdicion ?: return
+                    c.tam = progreso + 36
+                    titulo.text = etiquetaDe(c) + "  ·  " + c.tam + " dp"
+                    redimensionarEnEdicion(c)
+                }
+                override fun onStartTrackingTouch(sb: android.widget.SeekBar?) = Unit
+                override fun onStopTrackingTouch(sb: android.widget.SeekBar?) = Unit
+            })
+        }
+        barra.addView(slider, LinearLayout.LayoutParams(dp(240), LinearLayout.LayoutParams.WRAP_CONTENT))
+        sliderEdicion = slider
+
+        val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fila.addView(
+            android.widget.Button(this).apply {
+                text = "GUARDAR"
+                textSize = 12f
+                setOnClickListener { salirModoEdicion(guardar = true) }
+            },
+        )
+        fila.addView(
+            android.widget.Button(this).apply {
+                text = "DESCARTAR"
+                textSize = 12f
+                setOnClickListener { salirModoEdicion(guardar = false) }
+            },
+        )
+        barra.addView(fila)
+
+        raiz.addView(
+            barra,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+            ),
+        )
+        barraEdicion = barra
+    }
+
+    /** Redimensiona en vivo el control elegido (y su capa) manteniendo el centro. */
+    private fun redimensionarEnEdicion(c: com.lucerion.launcher.data.ControlHud) {
+        val vista = controlesEnPantalla.firstOrNull { it.first === c }?.second ?: return
+        val velo = velosEdicion[c.id]
+        val tamPx = dpc(c.tam)
+        val cx = vista.x + vista.width / 2f
+        val cy = vista.y + vista.height / 2f
+        val nx = (cx - tamPx / 2f).coerceIn(0f, maxOf(0f, (raiz.width - tamPx).toFloat()))
+        val ny = (cy - tamPx / 2f).coerceIn(0f, maxOf(0f, (raiz.height - tamPx).toFloat()))
+        for (v in listOfNotNull(vista, velo)) {
+            v.layoutParams = FrameLayout.LayoutParams(tamPx, tamPx)
+            v.post {
+                v.x = nx
+                v.y = ny
+            }
+        }
+        c.x = (nx + tamPx / 2f) / raiz.width
+        c.y = (ny + tamPx / 2f) / raiz.height
+    }
+
+    private fun salirModoEdicion(guardar: Boolean) {
+        modoEdicion = false
+        velosEdicion.values.forEach { raiz.removeView(it) }
+        velosEdicion.clear()
+        barraEdicion?.let { raiz.removeView(it) }
+        barraEdicion = null
+        tituloEdicion = null
+        sliderEdicion = null
+        seleccionEdicion = null
+
+        if (guardar) {
+            com.lucerion.launcher.data.RepositorioDiseno.guardar(this, diseno)
+        } else {
+            diseno = com.lucerion.launcher.data.RepositorioDiseno.cargar(this)
+        }
+        construirHud()
+    }
+
 
     /** dp escalado por el ajuste "Tamaño de los controles". */
     private var escalaControles = 1f
