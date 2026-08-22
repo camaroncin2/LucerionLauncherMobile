@@ -42,3 +42,6 @@ AGENTS.md
 *.keystore
 keystore.properties
 LucerionMobile-*.apk
+
+# Mediciones locales del banco de pruebas (no son del proyecto)
+banco/

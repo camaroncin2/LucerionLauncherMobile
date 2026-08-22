@@ -88,10 +88,15 @@ object Lanzador {
         "-XX:MaxGCPauseMillis=50",
         "-XX:G1PeriodicGCInterval=20000",        // revisa cada 20 s
         "-XX:+G1PeriodicGCInvokesConcurrent",    // sin pausas largas
-        "-XX:G1PeriodicGCSystemLoadThreshold=0", // tambien con el equipo ocupado
-        "-XX:MinHeapFreeRatio=10",               // deja poco holgura...
+        // Umbral de carga: por debajo de esta carga media se considera que el
+        // equipo esta ocioso y se recolecta. Estaba en 0, que NO significa
+        // "siempre que haga falta" sino "desactiva la comprobacion": el ciclo
+        // saltaba cada 20 s tambien en plena partida, gastando el procesador
+        // que ya viene recortado por temperatura. Con 3 solo actua cuando de
+        // verdad has salido del juego, que era la intencion.
+        "-XX:G1PeriodicGCSystemLoadThreshold=3",
+        "-XX:MinHeapFreeRatio=10",               // deja poca holgura...
         "-XX:MaxHeapFreeRatio=25",               // ...y encoge en cuanto sobra
-        "-XX:+UseStringDeduplication",
     )
 
     /** Copia los jars auxiliares que DefaultLauncher exige (los desempaqueta FCL en su app). */

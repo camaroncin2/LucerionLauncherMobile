@@ -1284,9 +1284,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             return
         }
         enEjecucion = true
-        anchoJuego = ancho
-        altoJuego = alto
-        fijarResolucion(ancho, alto)
+        // Escala de renderizado: el juego dibuja a menos pixeles y TextureView
+        // estira el resultado al panel. Par a proposito: una anchura impar
+        // deja una columna a medias en la conversion de croma del compositor.
+        val escala = com.lucerion.launcher.data.RepositorioAjustes.escalaRender(this) / 100f
+        anchoJuego = ((ancho * escala).toInt() / 2) * 2
+        altoJuego = ((alto * escala).toInt() / 2) * 2
+        fijarResolucion(anchoJuego, altoJuego)
         st.setDefaultBufferSize(anchoJuego, altoJuego)
         p.setSurfaceDestroyed(false)
         p.execute(
@@ -1333,9 +1337,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             },
         )
         p.setSurfaceTexture(st)
-        p.pushEventWindow(ancho, alto)
-        cursorX = ancho / 2f
-        cursorY = alto / 2f
+        p.pushEventWindow(anchoJuego, altoJuego)
+        cursorX = anchoJuego / 2f
+        cursorY = altoJuego / 2f
     }
 
     override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, ancho: Int, alto: Int) {
@@ -1444,6 +1448,20 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         }
     }
 
+    /**
+     * Factor para pasar de pixeles de la VISTA a pixeles del JUEGO.
+     *
+     * Con escala de renderizado por debajo del 100 %, los dos espacios dejan
+     * de coincidir. Todo lo que viaje al juego —posicion del cursor, giros de
+     * camara, geometria de la hotbar— tiene que ir en su espacio, o tocar una
+     * ranura seleccionaria la de al lado.
+     */
+    private fun factorRender(): Float {
+        val anchoVista = if (textura.width > 0) textura.width else anchoPantalla()
+        if (anchoJuego <= 0 || anchoVista <= 0) return 1f
+        return anchoJuego.toFloat() / anchoVista
+    }
+
     private fun manejarToque(evento: MotionEvent) {
         val p = puente ?: return
         when (evento.actionMasked) {
@@ -1458,8 +1476,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 xInicioToque = evento.x
                 yInicioToque = evento.y
                 if (!cursorAgarrado) {
-                    cursorX = evento.x
-                    cursorY = evento.y
+                    val f = factorRender()
+                    cursorX = evento.x * f
+                    cursorY = evento.y * f
                     p.pushEventPointer(cursorX, cursorY)
                 }
                 handler.postDelayed(toqueLargo, 420)
@@ -1474,19 +1493,23 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 }
                 ultimoX = evento.x
                 ultimoY = evento.y
+                val f = factorRender()
                 if (cursorAgarrado) {
-                    cursorX += dx
-                    cursorY += dy
+                    // El giro tambien va escalado: sin esto, el mismo gesto
+                    // giraria mas o menos segun la escala elegida.
+                    cursorX += dx * f
+                    cursorY += dy * f
                 } else {
-                    cursorX = evento.x
-                    cursorY = evento.y
+                    cursorX = evento.x * f
+                    cursorY = evento.y * f
                 }
                 if (!cursorAgarrado && seMovio && !arrastrandoEnMenu) {
                     arrastrandoEnMenu = true
                     // El reparto empieza en la casilla donde APRIETAS: hay que
                     // volver a ese punto y pulsar alli antes de recorrer las
                     // demas, o el slot de origen se queda fuera del reparto.
-                    p.pushEventPointer(xInicioToque, yInicioToque)
+                    val fi = factorRender()
+                    p.pushEventPointer(xInicioToque * fi, yInicioToque * fi)
                     p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), true)
                 }
                 p.pushEventPointer(cursorX, cursorY)
@@ -1533,10 +1556,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      * slot. Geometria de Minecraft: GUI a escala automatica (la mayor que
      * mantenga 320x240 visibles), hotbar de 182 unidades centrada abajo.
      */
+    /** Recibe coordenadas de la VISTA; la geometria se calcula en las del JUEGO. */
     private fun slotHotbarEn(x: Float, y: Float): Int? {
-        val w = textura.width
-        val h = textura.height
+        val w = anchoJuego
+        val h = altoJuego
         if (w == 0 || h == 0) return null
+        val f = factorRender()
+        @Suppress("NAME_SHADOWING") val x = x * f
+        @Suppress("NAME_SHADOWING") val y = y * f
         val escala = maxOf(1, minOf(w / 320, h / 240))
         val altoHotbar = 22f * escala + dp(6) // margen tactil tolerante
         if (y < h - altoHotbar) return null

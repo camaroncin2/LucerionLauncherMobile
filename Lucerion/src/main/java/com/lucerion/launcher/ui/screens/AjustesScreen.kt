@@ -65,6 +65,7 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
     var usarCruceta by remember { mutableStateOf(RepositorioAjustes.usarCruceta(contexto)) }
     var escala by remember { mutableFloatStateOf(RepositorioAjustes.escalaControles(contexto)) }
     var memoriaMb by remember { mutableIntStateOf(RepositorioAjustes.memoriaMb(contexto)) }
+    var escalaRender by remember { mutableIntStateOf(RepositorioAjustes.escalaRender(contexto)) }
     var vsync by remember { mutableStateOf(RepositorioAjustes.vsync(contexto)) }
     var presentacion by remember { mutableStateOf(RepositorioAjustes.presentacionVulkan(contexto)) }
     var sinLrz by remember { mutableStateOf(RepositorioAjustes.turnipSinLrz(contexto)) }
@@ -162,7 +163,7 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
         if (apartado == null) {
             val entradas = listOf(
                 Triple("Controles", "Palanca o cruceta, tamaño global y el editor visual para mover, agrandar y añadir botones.", "controles"),
-                Triple("Rendimiento", "Memoria del juego, sincronía vertical y presentación de video.", "rendimiento"),
+                Triple("Rendimiento", "Resolución de dibujado, memoria del juego, sincronía vertical y presentación de video.", "rendimiento"),
                 Triple("Gráficos avanzados", "Interruptores experimentales del driver para cazar artefactos visuales.", "graficos"),
                 Triple("Partida y espacio", "Cuánto ocupa Cretania, cómo liberar espacio y reparar la instalación.", "partida"),
                 Triple("Acerca de", "Qué es Lucerion, versión instalada y aviso legal.", "acerca"),
@@ -233,6 +234,29 @@ fun AjustesScreen(alVolver: () -> Unit, versionApp: String = "") {
         }
 
         if (apartado == "rendimiento") {
+        FilaOpciones(
+            titulo = "Resolución de dibujado",
+            explicacion = "A cuántos píxeles dibuja el juego antes de estirarse a tu " +
+                "pantalla. Es lo que más rendimiento da en un móvil: al 85 % se dibujan " +
+                "tres cuartas partes de los píxeles y al 75 %, poco más de la mitad. " +
+                "Se pierde algo de nitidez, no se recorta nada, y el teléfono se " +
+                "calienta bastante menos — que es lo que de verdad te frena en partidas " +
+                "largas, porque al calentarse baja solo la velocidad del procesador.",
+            opciones = listOf("100 % (nítido)", "85 % (equilibrado)", "75 % (fluidez)"),
+            seleccion = when (escalaRender) {
+                75 -> "75 % (fluidez)"
+                85 -> "85 % (equilibrado)"
+                else -> "100 % (nítido)"
+            },
+            alElegir = {
+                escalaRender = when {
+                    it.startsWith("75") -> 75
+                    it.startsWith("85") -> 85
+                    else -> 100
+                }
+                RepositorioAjustes.guardarEscalaRender(contexto, escalaRender)
+            },
+        )
         FilaDeslizador(
             titulo = "Memoria del juego",
             explicacion = "Cuánta RAM puede usar Minecraft. Tu equipo tiene " +

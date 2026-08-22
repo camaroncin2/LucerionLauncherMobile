@@ -24,6 +24,21 @@ object RepositorioAjustes {
     // Rendimiento
     /** Memoria de la JVM en MB; 0 = automática (40 % de la RAM, entre 2 y 6 GB). */
     /**
+     * Porcentaje del panel al que se dibuja el juego (100 = nativo).
+     *
+     * Es la palanca mas directa que existe en movil: a 85 % se dibuja el 72 %
+     * de los pixeles y a 75 %, el 56 %. Menos pixeles es menos GPU, menos
+     * vatios y menos calor — y en este equipo el calor es justo lo que hace
+     * que el fabricante recorte el nucleo principal a la mitad. La imagen se
+     * reescala al panel completo, asi que la nitidez baja pero nada se corta.
+     */
+    fun escalaRender(c: Context): Int =
+        prefs(c).getInt("escala_render", 100).coerceIn(50, 100)
+
+    fun guardarEscalaRender(c: Context, v: Int) =
+        prefs(c).edit().putInt("escala_render", v.coerceIn(50, 100)).apply()
+
+    /**
      * Techo seguro de memoria del equipo: 30 % de la RAM.
      *
      * Medido en dispositivo, no estimado. Con el 40 % el proceso llegaba a 5 GB
