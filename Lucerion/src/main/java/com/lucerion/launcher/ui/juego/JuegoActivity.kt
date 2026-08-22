@@ -36,7 +36,32 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     companion object {
         /** Traspaso estático del puente, como hace FCL con su JVMActivity. */
         var puente: FCLBridge? = null
+
+        /** Carpeta de ejecución del juego (donde vive options.txt). */
+        var dirJuego: java.io.File? = null
         private const val UMBRAL_TOQUE_LARGO_MS = 400L
+    }
+
+    /**
+     * Minecraft debe renderizar EXACTAMENTE al tamaño del buffer de la
+     * superficie: si difieren, el stride de cada fila queda desfasado y la
+     * imagen sale rayada con columnas negras. FCL escribe este override en
+     * options.txt antes de arrancar; nosotros igual.
+     */
+    private fun fijarResolucion(ancho: Int, alto: Int) {
+        val dir = dirJuego ?: return
+        val archivo = java.io.File(dir, "options.txt")
+        val lineas = if (archivo.isFile) archivo.readLines().toMutableList() else mutableListOf()
+        val valores = mapOf(
+            "fullscreen" to "false",
+            "overrideWidth" to ancho.toString(),
+            "overrideHeight" to alto.toString(),
+        )
+        for ((clave, valor) in valores) {
+            val idx = lineas.indexOfFirst { it.startsWith("$clave:") }
+            if (idx >= 0) lineas[idx] = "$clave:$valor" else lineas.add("$clave:$valor")
+        }
+        archivo.writeText(lineas.joinToString(separator = System.lineSeparator()))
     }
 
     private var cursorAgarrado = false // modo cámara (GLFW_CURSOR_DISABLED)
@@ -104,6 +129,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, ancho: Int, alto: Int) {
         val p = puente ?: run { finish(); return }
+        fijarResolucion(ancho, alto)
         st.setDefaultBufferSize(ancho, alto)
         p.setSurfaceDestroyed(false)
         p.execute(
@@ -125,6 +151,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 }
             },
         )
+        p.setSurfaceTexture(st)
         p.pushEventWindow(ancho, alto)
         cursorX = ancho / 2f
         cursorY = alto / 2f

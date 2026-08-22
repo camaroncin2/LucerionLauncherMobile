@@ -124,7 +124,20 @@ object Lanzador {
                 puente.setHasTouchController(false)
                 CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
 
-                JuegoActivity.puente = puente
+                // options.txt por defecto (idioma, controles sanos) la primera vez;
+            // la Activity le escribira la resolucion exacta encima.
+            val dirEjecucion = repo.getRunDirectory(version.id)
+            val opcionesTxt = File(dirEjecucion, "options.txt")
+            if (!opcionesTxt.isFile) {
+                runCatching {
+                    actividad.assets.open("options.txt").use { entrada ->
+                        opcionesTxt.outputStream().use { salida -> entrada.copyTo(salida) }
+                    }
+                }
+            }
+
+            JuegoActivity.dirJuego = dirEjecucion
+            JuegoActivity.puente = puente
                 actividad.startActivity(Intent(actividad, JuegoActivity::class.java))
             }
         }
