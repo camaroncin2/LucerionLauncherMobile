@@ -57,6 +57,39 @@ object Lanzador {
     }
 
     /**
+     * Perfil de rendimiento móvil: se fusiona UNA sola vez sobre options.txt
+     * (el marcador evita repetirlo) — después el jugador manda. Valores
+     * elegidos para Adreno + Zink: vsync activo (las franjas), gráficos
+     * rápidos, 8 chunks, 60 FPS de tope y detalles caros apagados.
+     */
+    private fun aplicarPerfilRendimiento(dirEjecucion: File) {
+        val marcador = File(dirEjecucion, "lucerion-perfil-rendimiento.txt")
+        if (marcador.isFile) return
+        val archivo = File(dirEjecucion, "options.txt")
+        val lineas = if (archivo.isFile) archivo.readLines().toMutableList() else mutableListOf()
+        val valores = linkedMapOf(
+            "enableVsync" to "true",        // sincronía de presentación
+            "graphicsMode" to "0",          // gráficos rápidos
+            "renderDistance" to "8",
+            "simulationDistance" to "8",
+            "maxFps" to "60",               // el panel rinde ~45; 60 de tope sobra
+            "particles" to "1",             // partículas reducidas
+            "entityShadows" to "false",
+            "renderClouds" to "\"fast\"",
+            "mipmapLevels" to "2",
+            "biomeBlendRadius" to "1",
+            "entityDistanceScaling" to "0.75",
+            "ao" to "true",                 // luz suave: barata con Sodium y se nota
+        )
+        for ((clave, valor) in valores) {
+            val idx = lineas.indexOfFirst { it.startsWith("$clave:") }
+            if (idx >= 0) lineas[idx] = "$clave:$valor" else lineas.add("$clave:$valor")
+        }
+        archivo.writeText(lineas.joinToString(System.lineSeparator()))
+        marcador.writeText("v1")
+    }
+
+    /**
      * Construye el puente del juego y abre la Activity de la superficie.
      * La JVM arranca cuando la superficie está lista (JuegoActivity.execute).
      */
@@ -141,6 +174,7 @@ object Lanzador {
                     }
                 }
             }
+            aplicarPerfilRendimiento(dirEjecucion)
 
             JuegoActivity.dirJuego = dirEjecucion
             JuegoActivity.puente = puente
