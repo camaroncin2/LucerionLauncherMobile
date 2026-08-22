@@ -1245,7 +1245,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                         // pulsado: si no, el personaje se queda andando o
                         // agachado mientras navegas el inventario, porque el
                         // boton desaparece sin llegar a enviar su release.
-                        if (!agarrado) soltarTodo()
+                        if (!agarrado) {
+                            soltarTodo()
+                        } else {
+                            // Si el menu se cierra en pleno arrastre de
+                            // reparto, el boton izquierdo se quedaria pulsado
+                            // y el personaje se pondria a picar solo.
+                            puente?.let { soltarArrastreEnMenu(it) }
+                        }
                         actualizarControlesSegunMenu()
                     }
                 }
@@ -1331,6 +1338,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     //  · Toque corto en juego = usar/colocar/interactuar (clic derecho).
     //  · Toque corto sobre la hotbar = elegir ese slot (teclas 1-9).
     //  · En menus el dedo es el raton (toque corto = clic izquierdo).
+    //  · En menus, arrastrar = reparto: el boton izquierdo se queda pulsado
+    //    mientras recorres slots, que es lo que Minecraft necesita para ir
+    //    dividiendo la pila entre las casillas por las que pasas.
 
     private var ultimoX = 0f
     private var ultimoY = 0f
@@ -1345,6 +1355,18 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     //  · En juego en el resto de la pantalla: mantener = clic derecho
     //    SOSTENIDO hasta soltar el dedo — comer, beber, arco, escudo.
     private var sosteniendoDerecho = false
+
+    /**
+     * Arrastre con el boton izquierdo dentro de un menu.
+     *
+     * Minecraft reparte una pila entre varias casillas con el "quick craft":
+     * pulsas teniendo items en el cursor y, SIN soltar, recorres los slots;
+     * al soltar reparte. Hasta ahora el dedo solo movia el puntero en los
+     * menus, sin ningun boton pulsado, asi que el juego nunca veia el gesto.
+     */
+    private var arrastrandoEnMenu = false
+    private var xInicioToque = 0f
+    private var yInicioToque = 0f
 
     private val toqueLargo = Runnable {
         val p = puente ?: return@Runnable
@@ -1374,8 +1396,11 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 seMovio = false
                 toqueLargoHecho = false
                 sosteniendoDerecho = false
+                arrastrandoEnMenu = false
                 ultimoX = evento.x
                 ultimoY = evento.y
+                xInicioToque = evento.x
+                yInicioToque = evento.y
                 if (!cursorAgarrado) {
                     cursorX = evento.x
                     cursorY = evento.y
@@ -1400,6 +1425,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     cursorX = evento.x
                     cursorY = evento.y
                 }
+                if (!cursorAgarrado && seMovio && !arrastrandoEnMenu) {
+                    arrastrandoEnMenu = true
+                    // El reparto empieza en la casilla donde APRIETAS: hay que
+                    // volver a ese punto y pulsar alli antes de recorrer las
+                    // demas, o el slot de origen se queda fuera del reparto.
+                    p.pushEventPointer(xInicioToque, yInicioToque)
+                    p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), true)
+                }
                 p.pushEventPointer(cursorX, cursorY)
             }
 
@@ -1407,6 +1440,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             // camara saltaba al otro dedo: se trata como fin de gesto.
             MotionEvent.ACTION_POINTER_UP -> {
                 handler.removeCallbacks(toqueLargo)
+                soltarArrastreEnMenu(p)
                 if (sosteniendoDerecho) {
                     p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
                     sosteniendoDerecho = false
@@ -1416,6 +1450,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 handler.removeCallbacks(toqueLargo)
+                // Soltar cierra el reparto: aqui es donde Minecraft aplica el
+                // reparto entre todas las casillas recorridas.
+                soltarArrastreEnMenu(p)
                 if (sosteniendoDerecho) {
                     // Fin de comer/beber/apuntar: soltar el clic derecho.
                     p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
@@ -1601,8 +1638,16 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      * plano. Sin esto, minimizar en pleno toque dejaba al personaje andando
      * o agachado para siempre, sin nadie que soltara la tecla.
      */
+    /** Cierra el arrastre de reparto si habia uno en curso. */
+    private fun soltarArrastreEnMenu(p: FCLBridge) {
+        if (!arrastrandoEnMenu) return
+        arrastrandoEnMenu = false
+        p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), false)
+    }
+
     private fun soltarTodo() {
         val p = puente ?: return
+        soltarArrastreEnMenu(p)
         for ((codigo, pulsada) in movimientoActivo) {
             if (pulsada) p.pushEventKey(codigo, 0, false)
         }
