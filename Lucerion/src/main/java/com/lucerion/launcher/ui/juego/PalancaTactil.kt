@@ -30,7 +30,12 @@ class PalancaTactil(
     private var finAdelante = 0L
     private var corriendo = false
 
-    private fun actualizarSprint(adelante: Boolean) {
+    /**
+     * @param abreVentana si este "dejar de ir adelante" habilita el doble
+     *   toque. Solo lo hace levantar el dedo: pasar el pulgar por la zona
+     *   muerta y volver adelante disparaba sprint sin doble toque real.
+     */
+    private fun actualizarSprint(adelante: Boolean, abreVentana: Boolean = false) {
         val ahora = android.os.SystemClock.uptimeMillis()
         if (adelante && !adelanteActivo) {
             if (ahora - finAdelante < 280 && !corriendo) {
@@ -38,7 +43,7 @@ class PalancaTactil(
                 alCorrer(true)
             }
         } else if (!adelante && adelanteActivo) {
-            finAdelante = ahora
+            if (abreVentana) finAdelante = ahora
             if (corriendo) {
                 corriendo = false
                 alCorrer(false)
@@ -89,8 +94,9 @@ class PalancaTactil(
                 perillaX = dx
                 perillaY = dy
                 if (distancia < radio * 0.22f) {
-                    // Zona muerta: perilla casi centrada, sin movimiento.
-                    actualizarSprint(false)
+                    // Zona muerta: perilla casi centrada, sin movimiento. NO
+                    // abre la ventana de sprint (el dedo sigue apoyado).
+                    actualizarSprint(false, abreVentana = false)
                     alCambiar(false, false, false, false)
                 } else {
                     val angulo = atan2(-dy, dx) // y de pantalla crece hacia abajo
@@ -107,7 +113,7 @@ class PalancaTactil(
                 activa = false
                 perillaX = 0f
                 perillaY = 0f
-                actualizarSprint(false)
+                actualizarSprint(false, abreVentana = true)
                 alCambiar(false, false, false, false)
                 invalidate()
             }
