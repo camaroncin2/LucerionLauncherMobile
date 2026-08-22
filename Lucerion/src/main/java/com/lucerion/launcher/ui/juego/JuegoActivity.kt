@@ -23,6 +23,7 @@ import com.tungsten.fclauncher.bridge.FCLBridge
 import com.tungsten.fclauncher.bridge.FCLBridgeCallback
 import com.tungsten.fclauncher.keycodes.FCLKeycodes
 import com.tungsten.fclauncher.keycodes.LwjglGlfwKeycode
+import kotlinx.coroutines.launch
 
 /**
  * Superficie del juego + controles táctiles.
@@ -95,6 +96,15 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var botonMenu: View? = null
     private var observadorTeclado: android.view.ViewTreeObserver.OnGlobalLayoutListener? = null
 
+    // La ventana del juego arranca su PROPIA partida: la superficie y el
+    // puente llegan por caminos distintos (una por el sistema, el otro por el
+    // motor) y arrancamos cuando estan los dos.
+    private var superficiePendiente: SurfaceTexture? = null
+    private var anchoSuperficie = 0
+    private var altoSuperficie = 0
+    private var arrancando = false
+    private var avisoArranque: android.widget.TextView? = null
+
     // ── Ciclo de vida y layout ───────────────────────────────────────────────
 
     @SuppressLint("ClickableViewAccessibility")
@@ -155,6 +165,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         // plano, Android mata este proceso (la JVM vive aqui) en segundos.
         startForegroundService(android.content.Intent(this, com.lucerion.launcher.motor.ServicioJuego::class.java))
 
+        prepararPartida(intent)
+
         // El juego queda a TAMANO COMPLETO siempre; cuando el teclado se abre,
         // la barra de entrada aparece pegada justo encima de el mostrando lo
         // que escribes (el teclado tapa la parte baja del juego, nada mas).
@@ -174,6 +186,76 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             }
         }
         window.decorView.viewTreeObserver.addOnGlobalLayoutListener(observadorTeclado)
+    }
+
+    /**
+     * Volver a la ventana desde recientes trae un intent nuevo. Si ya hay
+     * partida, NO se toca: relanzar sobre una JVM viva la tumba.
+     */
+    override fun onNewIntent(nuevo: android.content.Intent?) {
+        super.onNewIntent(nuevo)
+        nuevo?.let { intent = it }
+        prepararPartida(nuevo)
+    }
+
+    /**
+     * Arranca la partida en ESTE proceso a partir de los datos que trae el
+     * intent. Antes el launcher preparaba el puente y se lo pasaba por una
+     * variable compartida; con procesos separados eso ya no existe, y ademas
+     * la partida deja de morir cuando el sistema recorta al launcher.
+     */
+    private fun prepararPartida(datos: android.content.Intent?) {
+        if (puente != null || arrancando) return
+        val ruta = datos?.getStringExtra("instancia") ?: run {
+            mostrarAvisoArranque("No se recibieron los datos de la partida.")
+            return
+        }
+        val apodo = datos.getStringExtra("apodo") ?: "Jugador"
+        arrancando = true
+        mostrarAvisoArranque("Preparando Cretania…")
+        com.lucerion.launcher.motor.Lanzador.ambitoArranque.launch {
+            try {
+                com.lucerion.launcher.motor.Lanzador.lanzar(
+                    this@JuegoActivity, java.io.File(ruta), apodo,
+                )
+                arrancando = false
+                mostrarAvisoArranque(null)
+                intentarArrancar()
+            } catch (e: Exception) {
+                arrancando = false
+                android.util.Log.e("LucerionJuego", "No se pudo preparar la partida", e)
+                val raiz = generateSequence<Throwable>(e) { it.cause }.last()
+                mostrarAvisoArranque(
+                    "No se pudo entrar: " + (raiz.message ?: raiz.javaClass.simpleName),
+                )
+            }
+        }
+    }
+
+    /** Mensaje sobre la superficie negra mientras arranca (o si falla). */
+    private fun mostrarAvisoArranque(texto: String?) {
+        if (texto == null) {
+            avisoArranque?.let { raiz.removeView(it) }
+            avisoArranque = null
+            return
+        }
+        val vista = avisoArranque ?: android.widget.TextView(this).apply {
+            setTextColor(0xFFE8C06A.toInt())
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(dp(28), dp(28), dp(28), dp(28))
+            raiz.addView(
+                this,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER,
+                ),
+            )
+            avisoArranque = this
+        }
+        vista.text = texto
+        vista.bringToFront()
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
@@ -889,14 +971,23 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     // ── Superficie ───────────────────────────────────────────────────────────
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, ancho: Int, alto: Int) {
-        val p = puente ?: run {
-            // Sin puente no hay partida: dejar el estado limpio o el siguiente
-            // arranque creía que ya corría y se quedaba en pantalla negra.
-            enEjecucion = false
-            detenerServicio()
-            finish()
-            return
-        }
+        // La superficie puede estar lista ANTES que el puente (el motor tarda
+        // en resolver la version y la cuenta): se guarda y arranca quien
+        // llegue ultimo.
+        superficiePendiente = st
+        anchoSuperficie = ancho
+        altoSuperficie = alto
+        intentarArrancar()
+    }
+
+    /** Arranca en cuanto estan la superficie Y el puente. */
+    private fun intentarArrancar() {
+        val st = superficiePendiente ?: return
+        val p = puente ?: return
+        arrancarJuego(st, p, anchoSuperficie, altoSuperficie)
+    }
+
+    private fun arrancarJuego(st: SurfaceTexture, p: FCLBridge, ancho: Int, alto: Int) {
         if (enEjecucion) {
             // El juego ya corre: solo re-adjuntar la ventana nueva.
             st.setDefaultBufferSize(ancho, alto)

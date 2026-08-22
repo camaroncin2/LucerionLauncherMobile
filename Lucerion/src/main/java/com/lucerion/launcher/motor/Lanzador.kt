@@ -22,6 +22,11 @@ import java.nio.file.Paths
 /**
  * Capa C: de "todo instalado" a la JVM corriendo Minecraft.
  *
+ * Corre DENTRO del proceso del juego (lo invoca JuegoActivity) y deja el
+ * puente preparado. Antes se ejecutaba en el proceso del launcher y le pasaba
+ * el puente por una variable compartida — algo que deja de existir cuando los
+ * procesos se separan.
+ *
  * Cuenta libre con el apodo del jugador (el servidor autentica con AuthMod),
  * renderer Zink sobre Turnip (la config validada en la Fase 0) y conexión
  * directa a mc.cretania.net: JUGAR significa jugar.
@@ -239,7 +244,6 @@ object Lanzador {
 
             JuegoActivity.dirJuego = dirEjecucion
             JuegoActivity.puente = puente
-            actividad.startActivity(Intent(actividad, JuegoActivity::class.java))
         }
     }
 }

@@ -510,34 +510,21 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
                     Spacer(Modifier.height(12.dp))
                 }
                 BotonDorado(texto = stringResource(R.string.juego_entrar)) {
-                    // Ya hay partida viva (la app quedó minimizada): volver a
-                    // ella. Arrancar una segunda JVM dejaba la primera sin
-                    // controles y ambas peleando por la memoria.
-                    if (com.lucerion.launcher.ui.juego.JuegoActivity.partidaEnCurso()) {
-                        actividad.startActivity(
-                            android.content.Intent(
-                                actividad,
-                                com.lucerion.launcher.ui.juego.JuegoActivity::class.java,
-                            ),
-                        )
-                        return@BotonDorado
-                    }
-                    lanzando = true
+                    // La partida vive en su PROPIA ventana y su PROPIO proceso:
+                    // aquí solo se abre esa ventana, y el arranque del juego lo
+                    // hace ella misma. Si ya estaba abierta, se vuelve a ella
+                    // sin arrancar nada de nuevo.
                     errorLanzar = null
-                    // Ambito propio del arranque, NO el de la composicion: si
-                    // el jugador sale de la pantalla a mitad, la JVM ya esta
-                    // viva y cancelar aqui dejaba el proceso huerfano sin
-                    // abrir nunca la pantalla del juego.
-                    Lanzador.ambitoArranque.launch {
-                        try {
-                            Lanzador.lanzar(actividad, dirInstancia, apodo)
-                        } catch (e: Exception) {
-                            // Un fallo del lanzamiento se muestra, no tumba la app.
-                            errorLanzar = e.message ?: e.javaClass.simpleName
-                        } finally {
-                            lanzando = false
-                        }
-                    }
+                    actividad.startActivity(
+                        android.content.Intent(
+                            actividad,
+                            com.lucerion.launcher.ui.juego.JuegoActivity::class.java,
+                        ).apply {
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            putExtra("instancia", dirInstancia.absolutePath)
+                            putExtra("apodo", apodo)
+                        },
+                    )
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(

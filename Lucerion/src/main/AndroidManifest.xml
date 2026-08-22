@@ -45,7 +45,16 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation"
-            android:launchMode="singleTask" />
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.juego"
+            android:excludeFromRecents="false"
+            android:autoRemoveFromRecents="false"
+            android:process=":juego" />
+        <!-- Tarea propia: la partida aparece como ventana separada del
+             launcher en la lista de recientes y cerrar el launcher no la
+             toca. Proceso propio: la JVM del juego (varios GB) deja de
+             compartir suerte con la interfaz, que es lo que hacia que
+             minimizar terminara matando la partida. -->
 
         <!-- Editor de controles con previsualizacion (Ajustes -> Controles). -->
         <activity
@@ -55,12 +64,14 @@
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard" />
 
         <!-- Primer plano durante la partida: sin el, Android mata el proceso
-             (y la JVM del juego con el) a los segundos de minimizar. -->
+             (y la JVM del juego con el) a los segundos de minimizar. Vive en
+             el proceso del juego porque un servicio solo protege al suyo. -->
         <service
             android:name=".motor.ServicioJuego"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync"
+            android:process=":juego" />
 
         <!-- JVM del instalador (procesadores de NeoForge/Forge). FCLCore no
              declara manifest propio: cada consumidor del motor lo hace. -->
