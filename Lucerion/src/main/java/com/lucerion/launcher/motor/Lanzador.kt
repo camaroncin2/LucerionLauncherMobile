@@ -65,6 +65,11 @@ object Lanzador {
             MotorLucerion.cargarRutas(actividad)
             prepararJarsAuxiliares(actividad)
 
+            // Vsync forzado: sin el, el swapchain de Zink presenta con tearing
+            // (lineas verticales negras intermitentes). El puente nativo lo lee
+            // de este env en pojavInitOpenGL.
+            android.system.Os.setenv("FORCE_VSYNC", "true", true)
+
             val repo = InstaladorJuego.repositorio(dirInstancia)
             val version = MaintainTask.maintain(
                 repo, repo.getResolvedVersion(InstaladorJuego.NOMBRE_VERSION),

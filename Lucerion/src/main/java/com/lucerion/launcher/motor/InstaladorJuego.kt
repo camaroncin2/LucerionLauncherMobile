@@ -26,7 +26,7 @@ object InstaladorJuego {
     const val NOMBRE_VERSION = "cretania"
 
     sealed class Estado {
-        data object SinInstalar : Estado()
+        data class SinInstalar(val notaActualizacion: String? = null) : Estado()
         data class Instalando(
             val detalle: String,
             val bytesDescargados: Long = 0,
@@ -38,7 +38,7 @@ object InstaladorJuego {
         data class Fallo(val motivo: String) : Estado()
     }
 
-    private val _estado = MutableStateFlow<Estado>(Estado.SinInstalar)
+    private val _estado = MutableStateFlow<Estado>(Estado.SinInstalar())
     val estado: StateFlow<Estado> = _estado
 
     fun repositorio(dirInstancia: File): DefaultGameRepository =
@@ -50,6 +50,28 @@ object InstaladorJuego {
         if (!json.isFile) return false
         _estado.value = Estado.Instalado
         return true
+    }
+
+    private fun marcadorLoader(dirInstancia: File) = File(dirInstancia, "neoforge-instalado.txt")
+
+    /**
+     * Deriva de versión: si el panel declara otro NeoForge que el instalado,
+     * se vuelve al estado SinInstalar con la nota — el jugador ve "actualizar"
+     * en vez de un rechazo críptico del servidor.
+     */
+    suspend fun comprobarActualizacion(dirInstancia: File) {
+        if (_estado.value !is Estado.Instalado) return
+        try {
+            val remoto = ClienteLucerion.obtenerPack().loaderVersion
+            val local = marcadorLoader(dirInstancia).takeIf { it.isFile }?.readText()?.trim()
+            if (local != null && local != remoto) {
+                _estado.value = Estado.SinInstalar(
+                    "El servidor actualizó NeoForge ($local → $remoto). Toca instalar para ponerte al día.",
+                )
+            }
+        } catch (_: Exception) {
+            // Sin red no se bloquea nada: se juega con lo instalado.
+        }
     }
 
     /**
@@ -70,6 +92,15 @@ object InstaladorJuego {
                 repo, proveedor,
                 com.tungsten.fclcore.util.CacheRepository.getInstance() as DefaultCacheRepository,
             )
+
+            // Reinstalación por cambio de loader: la versión vieja se retira
+            // para que GameBuilder construya limpia (las librerías ya bajadas
+            // se reutilizan igual desde libraries/).
+            val marcador = marcadorLoader(dirInstancia)
+            val loaderPrevio = marcador.takeIf { it.isFile }?.readText()?.trim()
+            if (loaderPrevio != null && loaderPrevio != pack.loaderVersion) {
+                File(dirInstancia, "versions/$NOMBRE_VERSION").deleteRecursively()
+            }
 
             _estado.value = Estado.Instalando("Buscando NeoForge ${pack.loaderVersion} para ${pack.minecraft}")
             val listaNeoForge = proveedor.getVersionListById("neoforge")
@@ -116,6 +147,7 @@ object InstaladorJuego {
 
             repo.refreshVersions()
             if (!estaInstalado(dirInstancia)) error("La versión no quedó registrada tras instalar")
+            marcador.writeText(pack.loaderVersion)
             _estado.value = Estado.Instalado
         } catch (e: Exception) {
             _estado.value = Estado.Fallo(e.message ?: e.javaClass.simpleName)

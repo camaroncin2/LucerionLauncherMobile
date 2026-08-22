@@ -312,6 +312,7 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             InstaladorJuego.estaInstalado(dirInstancia)
+            InstaladorJuego.comprobarActualizacion(dirInstancia)
         }
     }
 
@@ -323,6 +324,15 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
     Spacer(Modifier.height(8.dp))
     when (val j = estadoJuego) {
         is InstaladorJuego.Estado.SinInstalar -> {
+            j.notaActualizacion?.let { nota ->
+                Text(
+                    text = nota,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OroClaro,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(10.dp))
+            }
             Text(
                 text = stringResource(R.string.juego_explicacion),
                 style = MaterialTheme.typography.bodyMedium,
