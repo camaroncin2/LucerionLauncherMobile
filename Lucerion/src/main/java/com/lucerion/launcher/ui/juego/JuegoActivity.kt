@@ -74,25 +74,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         private const val ESPERA_MANTENER = 300L
 
         /**
-         * Cuanto se deja pulsado el boton derecho en la primera interaccion.
-         *
-         * Minecraft repite la accion cada 4 ticks (5 veces por segundo)
-         * mientras el boton siga abajo: una palanca se encendia y apagaba
-         * sola. Soltando antes del primer repeticion, el gesto cuenta como
-         * UNA sola interaccion.
-         */
-        private const val PULSO_INTERACCION = 160L
-
-        /**
-         * Desde el toque largo, cuanto hay que seguir con el dedo abajo para
-         * pasar a sostener de verdad. Sostener es imprescindible para comer,
-         * tensar el arco o levantar el escudo —soltar el boton los cancela—,
-         * pero es justo lo que provoca la repeticion. Se reserva para quien
-         * mantiene de forma clara y deliberada.
-         */
-        private const val ESPERA_SOSTENIDO = 700L
-
-        /**
          * Controles que solo sirven con el juego "agarrado". Con un menu de
          * Minecraft delante (inventario, pausa, un cofre, un aldeano) no hacen
          * nada util y encima estorban justo encima de las casillas.
@@ -1392,7 +1373,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      * menus, sin ningun boton pulsado, asi que el juego nunca veia el gesto.
      */
     private var arrastrandoEnMenu = false
-    private var dedoEnPantalla = false
     private var xInicioToque = 0f
     private var yInicioToque = 0f
 
@@ -1410,39 +1390,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 tecla(p, FCLKeycodes.KEY_Q) // …y soltarlo (tecla() encadena solo)
             } else {
                 toqueLargoHecho = true
-                // Primero UNA sola interaccion (pulso corto). Solo si el dedo
-                // sigue abajo bastante despues se pasa a sostener.
                 sosteniendoDerecho = true
                 p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), true)
-                handler.postDelayed(finPulsoInteraccion, PULSO_INTERACCION)
-                handler.postDelayed(pasarASostenido, ESPERA_SOSTENIDO)
             }
         }
-    }
-
-    /** Cierra el pulso corto: la interaccion cuenta como una sola. */
-    private val finPulsoInteraccion = Runnable {
-        val p = puente ?: return@Runnable
-        if (!sosteniendoDerecho) return@Runnable
-        p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
-        sosteniendoDerecho = false
-    }
-
-    /**
-     * El dedo sigue abajo mucho despues del pulso: la intencion es sostener
-     * (comer, arco, escudo, colocar en cadena), asi que ahora si se mantiene
-     * el boton hasta soltar.
-     */
-    private val pasarASostenido = Runnable {
-        val p = puente ?: return@Runnable
-        if (!dedoEnPantalla || sosteniendoDerecho) return@Runnable
-        sosteniendoDerecho = true
-        p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), true)
-    }
-
-    private fun cancelarInteraccionSostenida() {
-        handler.removeCallbacks(finPulsoInteraccion)
-        handler.removeCallbacks(pasarASostenido)
     }
 
     private fun manejarToque(evento: MotionEvent) {
@@ -1450,8 +1401,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         when (evento.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 inicioToque = System.currentTimeMillis()
-                dedoEnPantalla = true
-                cancelarInteraccionSostenida()
                 seMovio = false
                 toqueLargoHecho = false
                 sosteniendoDerecho = false
@@ -1499,7 +1448,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             // camara saltaba al otro dedo: se trata como fin de gesto.
             MotionEvent.ACTION_POINTER_UP -> {
                 handler.removeCallbacks(toqueLargo)
-                cancelarInteraccionSostenida()
                 soltarArrastreEnMenu(p)
                 if (sosteniendoDerecho) {
                     p.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt(), false)
@@ -1510,8 +1458,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 handler.removeCallbacks(toqueLargo)
-                dedoEnPantalla = false
-                cancelarInteraccionSostenida()
                 // Soltar cierra el reparto: aqui es donde Minecraft aplica el
                 // reparto entre todas las casillas recorridas.
                 soltarArrastreEnMenu(p)
@@ -1720,8 +1666,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             sosteniendoDerecho = false
         }
         handler.removeCallbacks(toqueLargo)
-        dedoEnPantalla = false
-        cancelarInteraccionSostenida()
     }
 
     private fun detenerServicio() {
