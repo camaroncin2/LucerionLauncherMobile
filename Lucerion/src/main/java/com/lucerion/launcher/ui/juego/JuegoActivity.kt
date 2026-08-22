@@ -221,9 +221,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 arrancando = false
                 mostrarAvisoArranque(null)
                 intentarArrancar()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Throwable y no Exception: los fallos de carga de bibliotecas
+                // nativas (UnsatisfiedLinkError, ExceptionInInitializerError)
+                // son Error, y sin capturarlos la ventana moria en duro sin
+                // dejar ni un mensaje en pantalla.
                 arrancando = false
                 android.util.Log.e("LucerionJuego", "No se pudo preparar la partida", e)
+                com.lucerion.launcher.motor.RegistroFallos.anotar(this@JuegoActivity, e)
                 val raiz = generateSequence<Throwable>(e) { it.cause }.last()
                 mostrarAvisoArranque(
                     "No se pudo entrar: " + (raiz.message ?: raiz.javaClass.simpleName),

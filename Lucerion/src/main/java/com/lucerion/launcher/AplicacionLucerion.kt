@@ -17,5 +17,9 @@ class AplicacionLucerion : FCLApplication() {
         // ANTES — el inicio de sesion con Microsoft — moria con un fallo
         // incomprensible. Se fija al arrancar la app, que es cuando toca.
         com.tungsten.fclauncher.utils.FCLPath.CONTEXT = this
+        // Caja negra: cualquier fallo que nadie capture queda escrito en un
+        // archivo propio. El proceso del juego muere sin dejar rastro en el
+        // registro del sistema si este ya roto.
+        com.lucerion.launcher.motor.RegistroFallos.instalarRedDeSeguridad(this)
     }
 }
