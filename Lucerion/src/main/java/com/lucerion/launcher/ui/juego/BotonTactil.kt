@@ -10,8 +10,9 @@ import android.view.MotionEvent
 import android.view.View
 
 /**
- * Botón táctil al estilo de los controles clásicos de Bedrock: cuadrado
- * translúcido de esquinas suaves con glifo blanco que se ilumina al presionar.
+ * Botón táctil: distribución y glifos de los controles clásicos de Bedrock,
+ * vestidos con la identidad de Lucerion — placa navy con marco de latón y
+ * remaches, que se enciende en ámbar al presionar.
  *
  * Java Edition no incluye las texturas táctiles de Bedrock (pertenecen al
  * motor Bedrock, otro juego), así que los glifos se dibujan vectoriales
@@ -42,15 +43,24 @@ class BotonTactil(
 
     private var activo = false
 
+    // Identidad Lucerion: placa de navy profundo con marco de laton y
+    // remaches en las esquinas; al presionar, el laton se enciende como
+    // metal al rojo. Misma paleta que el resto de la app.
     private val pintaFondo = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val pintaBorde = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        color = 0x66FFFFFF
-    }
+    private val pintaBorde = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val pintaRemache = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val pintaGlifo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xF2FFFFFF.toInt()
+        color = ORO_CLARO
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
+    }
+
+    private companion object {
+        const val NAVY = 0xA60C1424.toInt()        // placa en reposo
+        const val NAVY_ACTIVO = 0xD9241A0C.toInt() // placa presionada (calida)
+        const val ORO = 0xD5A84B or (0xB2 shl 24)
+        const val ORO_VIVO = 0xFFFFC646.toInt()
+        const val ORO_CLARO = 0xF2E8C06A.toInt()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -90,12 +100,24 @@ class BotonTactil(
         val w = width.toFloat()
         val h = height.toFloat()
         val radio = w * 0.16f
-        pintaFondo.color = if (activo) 0x8CE8E8E8.toInt() else 0x59101010
-        pintaBorde.strokeWidth = w * 0.028f
+        pintaFondo.color = if (activo) NAVY_ACTIVO else NAVY
+        pintaBorde.color = if (activo) ORO_VIVO else ORO
+        pintaGlifo.color = if (activo) ORO_VIVO else ORO_CLARO
+        pintaBorde.strokeWidth = w * 0.045f
         val inset = pintaBorde.strokeWidth
         val marco = RectF(inset, inset, w - inset, h - inset)
         canvas.drawRoundRect(marco, radio, radio, pintaFondo)
         canvas.drawRoundRect(marco, radio, radio, pintaBorde)
+
+        // Remaches: cuatro puntos de laton en las esquinas de la placa.
+        pintaRemache.color = if (activo) ORO_VIVO else ORO
+        val margen = w * 0.155f
+        val rRemache = w * 0.030f
+        for (rx in listOf(margen, w - margen)) {
+            for (ry in listOf(margen, h - margen)) {
+                canvas.drawCircle(rx, ry, rRemache, pintaRemache)
+            }
+        }
 
         if (texto != null) {
             pintaGlifo.style = Paint.Style.FILL

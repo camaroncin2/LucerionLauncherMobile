@@ -25,21 +25,25 @@ import com.tungsten.fclauncher.keycodes.FCLKeycodes
 import com.tungsten.fclauncher.keycodes.LwjglGlfwKeycode
 
 /**
- * Superficie del juego + controles táctiles con la distribución clásica de
- * Bedrock (glifos vectoriales que replican los suyos — Java Edition no trae
- * esas texturas):
+ * Superficie del juego + controles táctiles.
  *
- *  · Cruceta abajo-izquierda (flechas macizas W/A/S/D) con AGACHARSE al
- *    centro (doble cheurón, conmutador). SALTO (rombo vacío) abajo-derecha.
- *  · CHAT (globo de diálogo) arriba al centro: en juego pulsa T y abre el
- *    teclado; en menús solo abre el teclado.
- *  · Arriba a la derecha: PAUSA (ESC) · INVENTARIO (E) · TECLADO.
- *  · En juego (cámara agarrada): arrastrar = mirar. En la MITAD DERECHA:
- *    mantener quieto ≥250 ms = ROMPER (clic izquierdo sostenido hasta soltar);
- *    toque corto = usar/colocar (clic derecho); toque corto a la izquierda =
- *    golpe rápido. En menús el dedo es el ratón.
- *  · Todos los botones: press al tocar y release al soltar (mandarlos juntos
- *    en el mismo instante los perdía la cola de entrada).
+ * Distribución y lógica de Bedrock, estética de Lucerion (placas de latón).
+ * El HUD entero se construye desde el diseño editable del jugador
+ * (Ajustes → Controles → editor), así que aquí no hay posiciones fijas:
+ * cada control llega con su sitio, su tamaño y, si es personalizado, su tecla.
+ *
+ *  · Movimiento: palanca (predeterminada, con diagonales y sprint por
+ *    doble-toque adelante) o cruceta, según ajuste.
+ *  · GOLPEAR: mantener = clic izquierdo sostenido; arrastrando sin soltar se
+ *    sigue moviendo la cámara con ese mismo dedo.
+ *  · La pantalla NUNCA golpea: arrastrar = mirar; toque corto = usar/colocar;
+ *    mantener = clic derecho sostenido (comer, beber, arco, escudo); toque
+ *    sobre la hotbar = elegir slot; mantener sobre la hotbar = soltar el ítem.
+ *  · En menús el dedo es el ratón; mantener = clic derecho (dividir stack).
+ *  · Toda pulsación programática separa press y release en el tiempo: la cola
+ *    de entrada del juego descarta las que llegan en el mismo instante.
+ *  · OJO: pushEventKey espera códigos FCLKeycodes, no GLFW (los traduce
+ *    LwjglKeycodeMap; un código GLFW se descarta en silencio).
  */
 class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 

@@ -47,17 +47,27 @@ class PalancaTactil(
         adelanteActivo = adelante
     }
 
+    // Anillo de laton grabado con perilla de bronce: la palanca es el control
+    // que mas se mira, asi que lleva el detalle steampunk mas cuidado.
     private val pintaBase = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0x40101010
+        color = 0x990C1424.toInt()
     }
     private val pintaAro = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = 0x66FFFFFF
+        color = 0xB2D5A84B.toInt()
+    }
+    private val pintaMarcas = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = 0x59E8C06A
     }
     private val pintaPerilla = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xB3E8E8E8.toInt()
+        color = 0xE6D5A84B.toInt()
+    }
+    private val pintaPerillaBorde = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = 0xFF8C6B22.toInt()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -109,10 +119,30 @@ class PalancaTactil(
         val cx = width / 2f
         val cy = height / 2f
         val radio = width / 2f
-        pintaAro.strokeWidth = radio * 0.045f
+        pintaAro.strokeWidth = radio * 0.055f
         canvas.drawCircle(cx, cy, radio * 0.94f, pintaBase)
         canvas.drawCircle(cx, cy, radio * 0.94f, pintaAro)
-        pintaPerilla.color = if (activa) 0xE6FFFFFF.toInt() else 0xB3E8E8E8.toInt()
-        canvas.drawCircle(cx + perillaX, cy + perillaY, radio * 0.34f, pintaPerilla)
+
+        // Marcas de brujula cada 45 grados, como un instrumento de laton.
+        pintaMarcas.strokeWidth = radio * 0.035f
+        for (i in 0 until 8) {
+            val ang = Math.toRadians(i * 45.0)
+            val dx = cos(ang).toFloat()
+            val dy = sin(ang).toFloat()
+            canvas.drawLine(
+                cx + dx * radio * 0.72f, cy + dy * radio * 0.72f,
+                cx + dx * radio * 0.86f, cy + dy * radio * 0.86f,
+                pintaMarcas,
+            )
+        }
+
+        pintaPerilla.color = if (activa) 0xFFFFC646.toInt() else 0xE6D5A84B.toInt()
+        pintaPerillaBorde.strokeWidth = radio * 0.045f
+        val px = cx + perillaX
+        val py = cy + perillaY
+        canvas.drawCircle(px, py, radio * 0.34f, pintaPerilla)
+        canvas.drawCircle(px, py, radio * 0.34f, pintaPerillaBorde)
+        // Tornillo central del pomo.
+        canvas.drawCircle(px, py, radio * 0.09f, pintaPerillaBorde)
     }
 }
