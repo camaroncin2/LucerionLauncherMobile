@@ -332,6 +332,12 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 override fun onLog(log: String?) = Unit // queda en latest_game.log
 
                 override fun onExit(codigo: Int) {
+                    // Diagnostico ANTES de soltar el estado: si el juego murio
+                    // por un fallo, el menu debe poder explicarlo en espanol.
+                    dirJuego?.let { dir ->
+                        com.lucerion.launcher.motor.DiagnosticoJuego.analizar(dir, codigo)
+                            ?.let { com.lucerion.launcher.motor.InstaladorJuego.ultimoDiagnostico = it }
+                    }
                     runOnUiThread {
                         enEjecucion = false
                         puente = null

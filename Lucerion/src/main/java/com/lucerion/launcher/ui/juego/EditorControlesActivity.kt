@@ -34,13 +34,16 @@ class EditorControlesActivity : Activity() {
     // Clave por id (inmutable): ControlHud es data class y su hash cambia al
     // arrastrar (x/y mutan) — como clave de mapa se "perdia" tras moverlo.
     private val velos = HashMap<String, View>()
+    private val etiquetasTam = HashMap<String, TextView>()
     private lateinit var panelTitulo: TextView
     private lateinit var deslizador: SeekBar
+    private lateinit var etiquetaTam: TextView
     private lateinit var botonBorrar: Button
     private var escala = 1f
 
     private companion object {
         const val SELECCION = 0x2E5EC8FF
+        const val TAM_BASE_PERSONALIZADO = 56
     }
 
     override fun onCreate(estado: Bundle?) {
@@ -93,6 +96,7 @@ class EditorControlesActivity : Activity() {
             .filter { it.tag is ControlHud }
         aQuitar.forEach { lienzo.removeView(it) }
         velos.clear()
+        etiquetasTam.clear()
 
         val w = lienzo.width
         val h = lienzo.height
@@ -107,6 +111,24 @@ class EditorControlesActivity : Activity() {
             velo.setBackgroundColor(if (c === seleccionado) SELECCION else Color.TRANSPARENT)
             cont.addView(velo, FrameLayout.LayoutParams(tamPx, tamPx))
             velos[c.id] = velo
+
+            // Porcentaje sobre el propio control: comparar de un vistazo.
+            val etiqueta = TextView(this).apply {
+                text = "${porcentajeDe(c)} %"
+                setTextColor(0xFFE8D9A0.toInt())
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setBackgroundColor(0xB3101820.toInt())
+            }
+            cont.addView(
+                etiqueta,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.BOTTOM,
+                ),
+            )
+            etiquetasTam[c.id] = etiqueta
 
             // Posicion por propiedades x/y (composicion GPU): el arrastre es
             // fluido porque NO se relayoutea nada por cada movimiento.
@@ -146,10 +168,28 @@ class EditorControlesActivity : Activity() {
             else -> c.id.replaceFirstChar { it.uppercase() }
         }
         deslizador.progress = c.tam - 36
+        mostrarTam(c)
         botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.GONE
         for (control in diseno.controles) {
             velos[control.id]?.setBackgroundColor(if (control === c) SELECCION else Color.TRANSPARENT)
         }
+    }
+
+    /**
+     * Tamaño en porcentaje respecto del predeterminado de ESE control (100 % =
+     * el de fábrica) y en dp: con el número a la vista se pueden igualar dos
+     * botones sin ojímetro.
+     */
+    private fun porcentajeDe(c: ControlHud): Int {
+        val base = RepositorioDiseno.porDefecto().controles
+            .firstOrNull { it.id == c.id }?.tam
+            ?: TAM_BASE_PERSONALIZADO
+        return Math.round(c.tam * 100f / base)
+    }
+
+    private fun mostrarTam(c: ControlHud) {
+        etiquetaTam.text = "Tamaño: ${porcentajeDe(c)} %  ·  ${c.tam} dp"
+        etiquetasTam[c.id]?.text = "${porcentajeDe(c)} %"
     }
 
     // ── Panel de edición ─────────────────────────────────────────────────────
@@ -165,10 +205,11 @@ class EditorControlesActivity : Activity() {
         }
         addView(panelTitulo)
 
-        addView(TextView(context).apply {
+        etiquetaTam = TextView(context).apply {
             text = "Tamaño del control seleccionado:"
             setTextColor(0xB3FFFFFF.toInt())
-        })
+        }
+        addView(etiquetaTam)
         deslizador = SeekBar(context).apply {
             max = 184 // 36..220 dp
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -178,6 +219,7 @@ class EditorControlesActivity : Activity() {
                         // centro: reconstruir todo por cada tick trababa.
                         seleccionado?.let { c ->
                             c.tam = progreso + 36
+                            mostrarTam(c)
                             val velo = velos[c.id] ?: return@let
                             val cont = velo.parent as FrameLayout
                             val tamPx = dp((c.tam * escala).toInt())

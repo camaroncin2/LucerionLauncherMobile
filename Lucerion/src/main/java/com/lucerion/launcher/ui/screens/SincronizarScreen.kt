@@ -309,10 +309,52 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
     var lanzando by remember { androidx.compose.runtime.mutableStateOf(false) }
     var errorLanzar by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
 
+    // Como termino la partida anterior: si el juego murio por un fallo, aqui
+    // se explica en espanol (lo publica JuegoActivity al cerrarse).
+    var diagnostico by remember {
+        androidx.compose.runtime.mutableStateOf(InstaladorJuego.ultimoDiagnostico)
+    }
+
     LaunchedEffect(Unit) {
+        diagnostico = InstaladorJuego.ultimoDiagnostico
+        InstaladorJuego.ultimoDiagnostico = null
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             InstaladorJuego.estaInstalado(dirInstancia)
             InstaladorJuego.comprobarActualizacion(dirInstancia)
+        }
+    }
+
+    diagnostico?.let { d ->
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 14.dp),
+            color = Bg3,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            ) {
+                Text(d.titulo, style = MaterialTheme.typography.titleMedium, color = OroClaro)
+                Text(d.detalle, style = MaterialTheme.typography.bodyMedium, color = TextoSuave)
+                d.tecnico?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSuave.copy(alpha = 0.55f),
+                    )
+                }
+                Text(
+                    "ENTENDIDO",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = OroClaro,
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .clickable { diagnostico = null }
+                        .padding(top = 4.dp),
+                )
+            }
         }
     }
 

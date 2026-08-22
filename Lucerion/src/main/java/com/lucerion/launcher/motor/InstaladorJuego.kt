@@ -41,6 +41,13 @@ object InstaladorJuego {
     private val _estado = MutableStateFlow<Estado>(Estado.SinInstalar())
     val estado: StateFlow<Estado> = _estado
 
+    /**
+     * Como termino la ultima partida cuando NO fue una salida normal. Lo
+     * publica JuegoActivity al cerrarse y lo consume la pantalla de entrada
+     * para explicarlo; se limpia al mostrarlo.
+     */
+    var ultimoDiagnostico: DiagnosticoJuego.Resultado? = null
+
     fun repositorio(dirInstancia: File): DefaultGameRepository =
         DefaultGameRepository(dirInstancia).also { it.refreshVersions() }
 
