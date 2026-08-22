@@ -98,7 +98,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private val velosEdicion = mutableMapOf<String, View>()
     private var modoEdicion = false
     private var panelMenu: View? = null
-    private var accionesEdicion: LinearLayout? = null
+    /** Columna centrada que agrupa las acciones y, debajo, el panel de ajuste. */
+    private var grupoEdicion: LinearLayout? = null
     private var panelEdicion: View? = null
     private var tituloEdicion: android.widget.TextView? = null
     private var sliderEdicion: android.widget.SeekBar? = null
@@ -763,7 +764,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                             arrastrando = true
                             v.removeCallbacks(alMantener)
                             ocultarPanelEdicion()
-                            accionesEdicion?.animate()?.alpha(0f)?.setDuration(90)?.start()
+                            // INVISIBLE y no alpha 0: una vista transparente
+                            // sigue capturando toques y tapaba la zona donde
+                            // estabas soltando el control.
+                            grupoEdicion?.visibility = View.INVISIBLE
                             // Reagarrar aqui: si se conserva el offset del
                             // toque inicial, el control pega un salto del
                             // tamano del umbral al empezar a moverse.
@@ -784,7 +788,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                         if (arrastrando) {
                             c.x = (v.x + v.width / 2f) / raiz.width
                             c.y = (v.y + v.height / 2f) / raiz.height
-                            accionesEdicion?.animate()?.alpha(1f)?.setDuration(120)?.start()
+                            grupoEdicion?.visibility = View.VISIBLE
                         }
                     }
                 }
@@ -839,6 +843,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         fila.addView(chip("GUARDAR") { salirModoEdicion(guardar = true) })
         fila.addView(chip("DESCARTAR") { salirModoEdicion(guardar = false) })
 
+        // Columna centrada: las acciones arriba y, cuando se abra, el panel
+        // de ajuste justo debajo. Sueltas en el borde de la pantalla quedaban
+        // lejos de lo que estas tocando.
         val columna = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -862,10 +869,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-            ).apply { topMargin = dp(6) },
+                Gravity.CENTER,
+            ),
         )
-        accionesEdicion = columna
+        grupoEdicion = columna
     }
 
     private fun ocultarPanelEdicion() {
@@ -876,7 +883,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         sliderOpacidadEdicion = null
         botonBorrarEdicion = null
         panel.animate().alpha(0f).setDuration(90)
-            .withEndAction { raiz.removeView(panel) }
+            .withEndAction { grupoEdicion?.removeView(panel) }
             .start()
     }
 
@@ -886,10 +893,11 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      * opacidad y borrar— porque cada cosa de mas es pantalla que tapa.
      */
     private fun mostrarPanelEdicion(c: com.lucerion.launcher.data.ControlHud) {
+        val grupo = grupoEdicion ?: return
         val previo = panelEdicion
         if (previo != null) {
             panelEdicion = null
-            raiz.removeView(previo)
+            grupo.removeView(previo)
         }
 
         val panel = LinearLayout(this).apply {
@@ -991,13 +999,15 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         pie.addView(chip("LISTO", 0xFFE8C06A.toInt()) { ocultarPanelEdicion() })
         panel.addView(pie)
 
-        raiz.addView(
+        // Indice 1: justo debajo de la fila de acciones y por encima de la
+        // pista de uso.
+        grupo.addView(
             panel,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER,
-            ),
+            1,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(8) },
         )
         panelEdicion = panel
         actualizarTituloEdicion(c)
@@ -1068,8 +1078,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         crearVelosEdicion()
         // Los velos se recrean encima, asi que las capas de edicion tienen
         // que volver al frente o quedan enterradas y dejan de responder.
-        accionesEdicion?.bringToFront()
-        panelEdicion?.bringToFront()
+        grupoEdicion?.bringToFront()
     }
 
     /** Redimensiona en vivo el control elegido (y su capa) manteniendo el centro. */
@@ -1104,9 +1113,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         modoEdicion = false
         velosEdicion.values.forEach { raiz.removeView(it) }
         velosEdicion.clear()
-        accionesEdicion?.let { raiz.removeView(it) }
-        accionesEdicion = null
-        panelEdicion?.let { raiz.removeView(it) }
+        grupoEdicion?.let { raiz.removeView(it) }
+        grupoEdicion = null
         panelEdicion = null
         tituloEdicion = null
         sliderEdicion = null
