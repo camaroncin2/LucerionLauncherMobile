@@ -9,13 +9,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.lucerion.launcher.data.RepositorioCuenta
 import com.lucerion.launcher.ui.screens.CuentaScreen
+import com.lucerion.launcher.ui.screens.SincronizarScreen
 import com.lucerion.launcher.ui.screens.HomeScreen
 import com.lucerion.launcher.ui.screens.SplashScreen
 import com.lucerion.launcher.ui.theme.LucerionTheme
 
 /** Pantallas de la app. Navegación por estado simple; si el grafo crece se
  *  migrará a navigation-compose sin tocar las pantallas. */
-private enum class Pantalla { Splash, Home, Cuenta }
+private enum class Pantalla { Splash, Home, Cuenta, Sincronizar }
 
 /**
  * Única Activity de la interfaz. El juego en sí corre en la Activity del motor.
@@ -37,6 +38,15 @@ class MainActivity : ComponentActivity() {
                         versionApp = BuildConfig.VERSION_NAME,
                         apodo = apodo,
                         alAbrirCuenta = { pantalla = Pantalla.Cuenta },
+                        // El camino feliz se protege solo: sin apodo, JUGAR te
+                        // lleva primero a elegirlo.
+                        alJugar = {
+                            pantalla = if (apodo == null) Pantalla.Cuenta else Pantalla.Sincronizar
+                        },
+                    )
+
+                    Pantalla.Sincronizar -> SincronizarScreen(
+                        alVolver = { pantalla = Pantalla.Home },
                     )
 
                     Pantalla.Cuenta -> CuentaScreen(

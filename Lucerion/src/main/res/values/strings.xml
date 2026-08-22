@@ -27,4 +27,19 @@
     <string name="cuenta_guardar">GUARDAR APODO</string>
     <string name="cuenta_microsoft_titulo">Cuenta Microsoft</string>
     <string name="cuenta_microsoft_detalle">Opcional: sirve para tu skin oficial y para entrar a otros servidores. Para jugar en Cretania no hace falta. Disponible próximamente.</string>
+
+    <!-- Sincronización del modpack -->
+    <string name="sync_titulo">Preparando Cretania</string>
+    <string name="sync_analizando">Consultando el servidor y comprobando qué falta descargar…</string>
+    <string name="sync_resumen">Versión %1$s · faltan %2$d de %3$d archivos (%4$s)</string>
+    <string name="sync_nota">La descarga se reanuda sola si se corta: lo ya bajado y verificado no se repite. Conviene estar en WiFi.</string>
+    <string name="sync_descargar">DESCARGAR</string>
+    <string name="sync_descargando">%1$d de %2$d archivos</string>
+    <string name="sync_bytes">%1$s de %2$s</string>
+    <string name="sync_cancelar">Cancelar</string>
+    <string name="sync_completo">Modpack listo — versión %1$s, %2$d mods verificados</string>
+    <string name="sync_completo_detalle">El lanzamiento del juego llega en la próxima actualización del launcher. Tus archivos ya quedan listos y al día.</string>
+    <string name="sync_error_titulo">No se pudo</string>
+    <string name="sync_reintentar">REINTENTAR</string>
+    <string name="sync_volver">← Volver</string>
 </resources>

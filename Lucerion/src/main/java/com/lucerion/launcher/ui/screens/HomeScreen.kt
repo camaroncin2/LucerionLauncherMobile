@@ -57,6 +57,7 @@ fun HomeScreen(
     versionApp: String,
     apodo: String?,
     alAbrirCuenta: () -> Unit,
+    alJugar: () -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -64,9 +65,9 @@ fun HomeScreen(
             .background(Brush.verticalGradient(listOf(Bg2, Bg))),
     ) {
         if (maxWidth > maxHeight) {
-            HomeHorizontal(versionApp, apodo, alAbrirCuenta)
+            HomeHorizontal(versionApp, apodo, alAbrirCuenta, alJugar)
         } else {
-            HomeVertical(versionApp, apodo, alAbrirCuenta)
+            HomeVertical(versionApp, apodo, alAbrirCuenta, alJugar)
         }
     }
 }
@@ -74,7 +75,7 @@ fun HomeScreen(
 // ── Distribución vertical ────────────────────────────────────────────────────
 
 @Composable
-private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit) {
+private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alJugar: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -86,7 +87,7 @@ private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -
         Spacer(Modifier.height(12.dp))
         SeparadorRemaches()
         Spacer(Modifier.height(28.dp))
-        BloqueJugar()
+        BloqueJugar(alJugar)
         Spacer(Modifier.height(36.dp))
         TarjetasSecciones(apodo, alAbrirCuenta)
         Spacer(Modifier.height(40.dp))
@@ -97,7 +98,7 @@ private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -
 // ── Distribución horizontal ──────────────────────────────────────────────────
 
 @Composable
-private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit) {
+private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alJugar: () -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Panel de marca: fijo, sin scroll — es identidad, no contenido.
         Column(
@@ -132,7 +133,7 @@ private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: ()
                 .padding(horizontal = 28.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            BloqueJugar()
+            BloqueJugar(alJugar)
             Spacer(Modifier.height(24.dp))
             TarjetasSecciones(apodo, alAbrirCuenta)
         }
@@ -158,9 +159,9 @@ private fun CabeceraMarca() {
 }
 
 @Composable
-private fun BloqueJugar() {
+private fun BloqueJugar(alJugar: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        BotonJugar(alPulsar = { /* fase siguiente: sincronizar y lanzar */ })
+        BotonJugar(alPulsar = alJugar)
         Spacer(Modifier.height(10.dp))
         Text(
             text = stringResource(R.string.home_jugar_detalle),
