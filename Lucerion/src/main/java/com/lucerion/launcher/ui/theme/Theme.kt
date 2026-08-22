@@ -30,6 +30,9 @@ val AmbarCta2 = Color(0xFFFFAD1D) // gradiente CTA (abajo)
 val CreateAzul = Color(0xFF2E9BD6)
 val CreateNaranja = Color(0xFFE8871C)
 
+// Verde de confirmación: sólo para "esto ya está" (etiquetas de estado).
+val VerdeListo = Color(0xFF57C878)
+
 private val EsquemaLucerion = darkColorScheme(
     primary = Oro,
     onPrimary = Bg,

@@ -40,7 +40,7 @@
     <string name="motor_explicacion">Una sola vez: el launcher instala Java 21 y los componentes gráficos que Minecraft necesita para correr en tu teléfono. Vienen dentro de la app — no descarga nada.</string>
     <string name="motor_instalar">INSTALAR COMPONENTES</string>
     <string name="motor_preparando">Instalando: %1$s…</string>
-    <string name="motor_listo">Componentes del juego listos ✓</string>
+    <string name="motor_listo">Componentes del juego listos</string>
     <string name="motor_fallo">No se pudieron instalar los componentes: %1$s</string>
 
     <!-- Instalación y lanzamiento del juego -->
@@ -51,7 +51,7 @@
     <string name="juego_instalando_nota">El total exacto no se conoce por adelantado: el motor descubre archivos sobre la marcha. Suele rondar los 500 MB. No cierres la app.</string>
     <string name="juego_progreso_bytes">Descargado %1$s · %2$s por segundo</string>
     <string name="juego_progreso_tareas">%1$d de %2$d tareas del instalador (aprox.)</string>
-    <string name="juego_listo">Juego instalado ✓</string>
+    <string name="juego_listo">Minecraft + NeoForge instalados</string>
     <string name="juego_fallo">No se pudo instalar el juego: %1$s</string>
     <string name="juego_entrar">ENTRAR A CRETANIA</string>
     <string name="juego_entrar_detalle">Arranca Minecraft con tu apodo y conecta directo a mc.cretania.net. El primer arranque con todos los mods tarda varios minutos.</string>

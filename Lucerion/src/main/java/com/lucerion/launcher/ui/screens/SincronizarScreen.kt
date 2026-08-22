@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -51,6 +54,7 @@ import com.lucerion.launcher.ui.theme.Oro
 import com.lucerion.launcher.ui.theme.OroClaro
 import com.lucerion.launcher.ui.theme.OroProfundo
 import com.lucerion.launcher.ui.theme.TextoSuave
+import com.lucerion.launcher.ui.theme.VerdeListo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
@@ -96,6 +100,7 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = if (apaisado) 12.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -207,15 +212,12 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
                 }
 
                 is Estado.Completo -> {
-                    Text(
-                        text = stringResource(R.string.sync_completo, e.version, e.mods),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = OroClaro,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    BarraProgreso(indeterminada = false, fraccion = 1f)
-                    Spacer(Modifier.height(28.dp))
+                    // Todo lo que ya está listo se resume en una etiqueta con
+                    // su punto verde: antes eran dos líneas de texto y una
+                    // barra al 100 % por cada paso, y el botón de entrar
+                    // terminaba fuera de la pantalla.
+                    EtiquetaListo(stringResource(R.string.sync_completo, e.version, e.mods))
+                    Spacer(Modifier.height(8.dp))
                     BloqueMotor(apodo, File(contexto.getExternalFilesDir(null), "instancia-cretania"))
                 }
 
@@ -243,6 +245,35 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
 }
 
 /**
+ * Etiqueta de "esto ya está": recuadro con borde y punto verde. Sustituye a
+ * los pares título + confirmación que ocupaban media pantalla cuando todo
+ * estaba en orden.
+ */
+@Composable
+private fun EtiquetaListo(texto: String) {
+    Row(
+        modifier = Modifier
+            .border(1.dp, VerdeListo.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
+            .background(VerdeListo.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(9.dp)
+                .background(VerdeListo, RoundedCornerShape(percent = 50)),
+        )
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextoSuave,
+            maxLines = 2,
+        )
+    }
+}
+
+/**
  * Estado de los componentes del motor (runtimes del juego). Se instalan una
  * vez desde los assets del APK; despues esta seccion solo confirma que estan.
  */
@@ -260,12 +291,16 @@ private fun BloqueMotor(apodo: String, dirInstancia: File) {
         }
     }
 
-    Text(
-        text = stringResource(R.string.motor_titulo),
-        style = MaterialTheme.typography.titleMedium,
-        color = OroClaro,
-    )
-    Spacer(Modifier.height(8.dp))
+    // El título solo tiene sentido cuando hay algo que decidir: si ya está
+    // listo, la etiqueta verde lo dice todo en una línea.
+    if (estadoMotor !is MotorLucerion.Estado.Listo) {
+        Text(
+            text = stringResource(R.string.motor_titulo),
+            style = MaterialTheme.typography.titleMedium,
+            color = OroClaro,
+        )
+        Spacer(Modifier.height(8.dp))
+    }
     when (val m = estadoMotor) {
         is MotorLucerion.Estado.SinPreparar -> {
             Text(
@@ -291,12 +326,8 @@ private fun BloqueMotor(apodo: String, dirInstancia: File) {
         }
 
         is MotorLucerion.Estado.Listo -> {
-            Text(
-                text = stringResource(R.string.motor_listo),
-                style = MaterialTheme.typography.titleMedium,
-                color = OroClaro,
-            )
-            Spacer(Modifier.height(20.dp))
+            EtiquetaListo(stringResource(R.string.motor_listo))
+            Spacer(Modifier.height(8.dp))
             BloqueJuego(apodo, dirInstancia)
         }
 
@@ -378,12 +409,14 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
         }
     }
 
-    Text(
-        text = stringResource(R.string.juego_titulo),
-        style = MaterialTheme.typography.titleMedium,
-        color = OroClaro,
-    )
-    Spacer(Modifier.height(8.dp))
+    if (estadoJuego !is InstaladorJuego.Estado.Instalado) {
+        Text(
+            text = stringResource(R.string.juego_titulo),
+            style = MaterialTheme.typography.titleMedium,
+            color = OroClaro,
+        )
+        Spacer(Modifier.height(8.dp))
+    }
     when (val j = estadoJuego) {
         is InstaladorJuego.Estado.SinInstalar -> {
             j.notaActualizacion?.let { nota ->
@@ -450,12 +483,8 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
         }
 
         is InstaladorJuego.Estado.Instalado -> {
-            Text(
-                text = stringResource(R.string.juego_listo),
-                style = MaterialTheme.typography.titleMedium,
-                color = OroClaro,
-            )
-            Spacer(Modifier.height(16.dp))
+            EtiquetaListo(stringResource(R.string.juego_listo))
+            Spacer(Modifier.height(18.dp))
             if (lanzando) {
                 Text(
                     text = stringResource(R.string.juego_lanzando),
@@ -504,8 +533,9 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
+                    maxLines = 3,
                     text = stringResource(R.string.juego_entrar_detalle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextoSuave,
