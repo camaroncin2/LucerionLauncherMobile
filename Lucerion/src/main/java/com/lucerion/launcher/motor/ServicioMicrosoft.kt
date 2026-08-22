@@ -54,6 +54,16 @@ object ServicioMicrosoft {
         override fun isPublicClient(): Boolean = true
     }
 
+    /**
+     * El motor exige un selector de personaje aunque las cuentas de Microsoft
+     * no lo usen (tienen un solo perfil): pasarle null reventaba con
+     * NullPointerException antes siquiera de contactar con Microsoft.
+     */
+    private val selectorPerfil = com.tungsten.fclcore.auth.CharacterSelector { _, perfiles ->
+        perfiles.firstOrNull()
+            ?: throw com.tungsten.fclcore.auth.NoSelectedCharacterException()
+    }
+
     private val fabrica by lazy { MicrosoftAccountFactory(MicrosoftService(callback)) }
 
     /**
@@ -64,7 +74,14 @@ object ServicioMicrosoft {
         withContext(Dispatchers.IO) {
             alRecibirCodigo = alMostrarCodigo
             try {
-                fabrica.create(null, null, null, null, null)
+                // create() no solo construye la cuenta: dispara el flujo
+                // completo (código de dispositivo → Xbox Live → Minecraft).
+                fabrica.create(selectorPerfil, null, null, null, null)
+            } catch (e: Exception) {
+                // Sin esto el motivo real quedaba enterrado: la interfaz solo
+                // mostraba el nombre de la excepción.
+                android.util.Log.e("LucerionMicrosoft", "Fallo el inicio de sesion", e)
+                throw e
             } finally {
                 alRecibirCodigo = null
             }

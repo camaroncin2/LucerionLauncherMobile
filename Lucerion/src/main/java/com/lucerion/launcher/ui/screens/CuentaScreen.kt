@@ -273,7 +273,11 @@ private fun BloqueMicrosoft() {
                             sesionGuardada = true
                             mensaje = null
                         } catch (e: Exception) {
-                            mensaje = "No se pudo iniciar sesión: ${e.message ?: e.javaClass.simpleName}"
+                            // La causa de fondo dice mucho más que la excepción
+                            // de arriba (que suele ser un envoltorio).
+                            val raiz = generateSequence<Throwable>(e) { it.cause }.last()
+                            mensaje = "No se pudo iniciar sesión: " +
+                                (raiz.message ?: raiz.javaClass.simpleName)
                         } finally {
                             esperando = false
                             codigo = null
