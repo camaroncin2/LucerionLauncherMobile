@@ -353,6 +353,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             // su estado, y el sneak acababa desincronizado.
             if (usarCruceta && c.id == "agacharse") continue
             when {
+                c.tipo == "raton" -> coloca(botonDeRaton(c), c)
+
                 c.tipo == "tecla" -> coloca(
                     // Boton personalizado: etiqueta visible + tecla configurada.
                     BotonTactil(
@@ -797,8 +799,15 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         }
     }
 
+    /**
+     * Controles anadidos por el jugador. Son los unicos que se pueden borrar:
+     * los de serie se reponen solos y quitarlos dejaria el HUD incompleto.
+     */
+    private fun esPersonalizado(c: com.lucerion.launcher.data.ControlHud): Boolean =
+        c.tipo == "tecla" || c.tipo == "raton"
+
     private fun etiquetaDe(c: com.lucerion.launcher.data.ControlHud): String = when {
-        c.tipo == "tecla" -> "Botón " + (c.etiqueta ?: "?")
+        esPersonalizado(c) -> "Botón " + (c.etiqueta ?: "?")
         c.id == "movimiento" -> "Movimiento"
         else -> c.id.replaceFirstChar { it.uppercase() }
     }
@@ -986,7 +995,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             }
         // Borrar solo tiene sentido en los botones que anadio el jugador: los
         // controles de serie no se pueden quitar.
-        if (c.tipo == "tecla") {
+        if (esPersonalizado(c)) {
             val borrar = chip("BORRAR", 0xFFE08A7A.toInt()) {
                 diseno.controles.remove(c)
                 seleccionEdicion = null
@@ -1031,36 +1040,39 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
      * Android ignore uno de los dos), luego la etiqueta visible.
      */
     private fun dialogoNuevoBotonEnJuego() {
-        val nombres = com.lucerion.launcher.data.CatalogoTeclas.disponibles.map { it.first }.toTypedArray()
+        val opciones = com.lucerion.launcher.data.CatalogoBotones.opciones
         android.app.AlertDialog.Builder(this)
-            .setTitle("Nuevo botón — ¿qué tecla pulsará?")
-            .setItems(nombres) { _, cual -> dialogoEtiquetaEnJuego(cual) }
+            .setTitle("Nuevo botón — ¿qué hará?")
+            .setItems(opciones.map { it.nombre }.toTypedArray()) { _, cual ->
+                dialogoEtiquetaEnJuego(cual)
+            }
             .setNegativeButton("Cancelar", null)
             .show()
     }
 
     private fun dialogoEtiquetaEnJuego(indice: Int) {
-        val (nombre, codigo) = com.lucerion.launcher.data.CatalogoTeclas.disponibles[indice]
+        val opcion = com.lucerion.launcher.data.CatalogoBotones.opciones[indice]
         val campo = EditText(this).apply {
             hint = "Etiqueta visible (p. ej. Mochila)"
-            setText(nombre)
+            setText(opcion.etiqueta)
             setSelection(text.length)
         }
         android.app.AlertDialog.Builder(this)
-            .setTitle("Tecla " + nombre + " — etiqueta del botón")
+            .setTitle(opcion.nombre + " — etiqueta del botón")
             .setView(campo)
             .setPositiveButton("Añadir") { _, _ ->
                 // Desplazamiento por cada botón ya existente: dos botones
                 // nuevos seguidos nacían exactamente uno encima del otro.
-                val personalizados = diseno.controles.count { it.tipo == "tecla" }
+                val personalizados = diseno.controles.count { esPersonalizado(it) }
                 val nuevo = com.lucerion.launcher.data.ControlHud(
-                    id = "tecla_" + System.nanoTime(),
-                    tipo = "tecla",
+                    id = opcion.tipo + "_" + System.nanoTime(),
+                    tipo = opcion.tipo,
                     x = (0.42f + personalizados * 0.06f).coerceAtMost(0.9f),
                     y = (0.40f + personalizados * 0.05f).coerceAtMost(0.85f),
                     tam = 56,
-                    etiqueta = campo.text.toString().ifBlank { nombre },
-                    tecla = codigo,
+                    etiqueta = campo.text.toString().ifBlank { opcion.etiqueta },
+                    tecla = opcion.tecla,
+                    accion = opcion.accion,
                 )
                 diseno.controles.add(nuevo)
                 rehacerEdicion()
@@ -1140,6 +1152,42 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     // OJO: pushEventKey espera codigos FCLKeycodes (scancodes de Linux) que
     // LwjglKeycodeMap traduce a GLFW; un codigo GLFW directo cae en
     // "desconocido" y se descarta EN SILENCIO. Por eso ninguna tecla llegaba.
+    /**
+     * Boton personalizado ligado a una accion de raton.
+     *
+     * Las variantes de "un solo clic" existen precisamente para no depender
+     * del toque largo: mientras el boton del raton sigue pulsado, Minecraft
+     * repite la accion cada 4 ticks, asi que mantener sobre una palanca la
+     * encendia y la apagaba sola. Aqui una pulsacion es una interaccion.
+     */
+    private fun botonDeRaton(c: com.lucerion.launcher.data.ControlHud): BotonTactil {
+        val derecho = LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT.toInt()
+        val izquierdo = LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt()
+        val texto = c.etiqueta ?: "?"
+        return when (c.accion) {
+            com.lucerion.launcher.data.AccionesRaton.USAR_SOSTENIDO -> BotonTactil(
+                this, BotonTactil.Glifo.PAUSA, texto = texto,
+                alPresionar = { puente?.pushEventMouseButton(derecho, true) },
+                alSoltar = { puente?.pushEventMouseButton(derecho, false) },
+            )
+            com.lucerion.launcher.data.AccionesRaton.GOLPE -> BotonTactil(
+                this, BotonTactil.Glifo.PAUSA, texto = texto,
+                alPresionar = { puente?.let { clic(it, izquierdo) } },
+            )
+            com.lucerion.launcher.data.AccionesRaton.GOLPE_SOSTENIDO -> BotonTactil(
+                this, BotonTactil.Glifo.PAUSA, texto = texto,
+                alPresionar = { puente?.pushEventMouseButton(izquierdo, true) },
+                alSoltar = { puente?.pushEventMouseButton(izquierdo, false) },
+            )
+            // USAR y cualquier valor desconocido: un solo clic derecho, que es
+            // la accion mas util y la mas segura como reserva.
+            else -> BotonTactil(
+                this, BotonTactil.Glifo.PAUSA, texto = texto,
+                alPresionar = { puente?.let { clic(it, derecho) } },
+            )
+        }
+    }
+
     private fun botonTecla(glifo: BotonTactil.Glifo, codigo: Int): BotonTactil =
         BotonTactil(
             this, glifo,

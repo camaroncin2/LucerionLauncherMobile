@@ -14,7 +14,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
-import com.lucerion.launcher.data.CatalogoTeclas
+import com.lucerion.launcher.data.CatalogoBotones
 import com.lucerion.launcher.data.ControlHud
 import com.lucerion.launcher.data.DisenoHud
 import com.lucerion.launcher.data.RepositorioAjustes
@@ -79,8 +79,11 @@ class EditorControlesActivity : Activity() {
 
     // ── Vista previa ─────────────────────────────────────────────────────────
 
+    /** Controles anadidos por el jugador: los unicos que se pueden borrar. */
+    private fun esPersonalizado(c: ControlHud) = c.tipo == "tecla" || c.tipo == "raton"
+
     private fun vistaDe(c: ControlHud): View = when {
-        c.tipo == "tecla" -> BotonTactil(this, BotonTactil.Glifo.PAUSA, texto = c.etiqueta ?: "?", alPresionar = {})
+        esPersonalizado(c) -> BotonTactil(this, BotonTactil.Glifo.PAUSA, texto = c.etiqueta ?: "?", alPresionar = {})
         c.id == "movimiento" ->
             if (RepositorioAjustes.usarCruceta(this)) BotonTactil(this, BotonTactil.Glifo.FLECHA_ARRIBA, alPresionar = {})
             else PalancaTactil(this, alCambiar = { _, _, _, _ -> })
@@ -170,6 +173,7 @@ class EditorControlesActivity : Activity() {
     private fun seleccionar(c: ControlHud) {
         seleccionado = c
         panelTitulo.text = when {
+            c.tipo == "raton" -> "Botón «${c.etiqueta}» (acción)"
             c.tipo == "tecla" -> "Botón «${c.etiqueta}» (tecla)"
             c.id == "movimiento" -> "Movimiento (palanca/cruceta)"
             else -> c.id.replaceFirstChar { it.uppercase() }
@@ -177,7 +181,7 @@ class EditorControlesActivity : Activity() {
         deslizador.progress = c.tam - 36
         deslizadorOpacidad.progress = ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85)
         mostrarTam(c)
-        botonBorrar.visibility = if (c.tipo == "tecla") View.VISIBLE else View.INVISIBLE
+        botonBorrar.visibility = if (esPersonalizado(c)) View.VISIBLE else View.INVISIBLE
         for (control in diseno.controles) {
             velos[control.id]?.setBackgroundColor(if (control === c) SELECCION else Color.TRANSPARENT)
         }
@@ -285,7 +289,7 @@ class EditorControlesActivity : Activity() {
         filaArriba.addView(accion("+ BOTÓN") { dialogoNuevoBoton() })
         botonBorrar = accion("BORRAR") {
             seleccionado?.let {
-                if (it.tipo == "tecla") {
+                if (esPersonalizado(it)) {
                     diseno.controles.remove(it)
                     huboCambios = true
                     seleccionado = null
@@ -319,35 +323,36 @@ class EditorControlesActivity : Activity() {
     }
 
     /**
-     * Alta en dos pasos (mezclar lista y campo en un mismo dialogo hace que
-     * Android ignore uno de los dos): 1) elegir la tecla, 2) etiqueta visible.
+     * Alta en dos pasos (mezclar lista y campo en un mismo diálogo hace que
+     * Android ignore uno de los dos): 1) qué hará el botón, 2) etiqueta visible.
      */
     private fun dialogoNuevoBoton() {
-        val nombres = CatalogoTeclas.disponibles.map { it.first }.toTypedArray()
+        val opciones = CatalogoBotones.opciones
         AlertDialog.Builder(this)
-            .setTitle("Nuevo botón — ¿qué tecla pulsará?")
-            .setItems(nombres) { _, cual -> dialogoEtiqueta(cual) }
+            .setTitle("Nuevo botón — ¿qué hará?")
+            .setItems(opciones.map { it.nombre }.toTypedArray()) { _, cual -> dialogoEtiqueta(cual) }
             .setNegativeButton("Cancelar", null)
             .show()
     }
 
     private fun dialogoEtiqueta(indice: Int) {
-        val (nombre, codigo) = CatalogoTeclas.disponibles[indice]
+        val opcion = CatalogoBotones.opciones[indice]
         val etiqueta = EditText(this).apply {
             hint = "Etiqueta visible (p. ej. Mochila)"
-            setText(nombre)
+            setText(opcion.etiqueta)
             setSelection(text.length)
         }
         AlertDialog.Builder(this)
-            .setTitle("Tecla $nombre — etiqueta del botón")
+            .setTitle(opcion.nombre + " — etiqueta del botón")
             .setView(etiqueta)
             .setPositiveButton("Añadir") { _, _ ->
                 val nuevo = ControlHud(
-                    id = "tecla_${System.nanoTime()}",
-                    tipo = "tecla",
+                    id = opcion.tipo + "_" + System.nanoTime(),
+                    tipo = opcion.tipo,
                     x = 0.5f, y = 0.45f, tam = 56,
-                    etiqueta = etiqueta.text.toString().ifBlank { nombre },
-                    tecla = codigo,
+                    etiqueta = etiqueta.text.toString().ifBlank { opcion.etiqueta },
+                    tecla = opcion.tecla,
+                    accion = opcion.accion,
                 )
                 diseno.controles.add(nuevo)
                 huboCambios = true

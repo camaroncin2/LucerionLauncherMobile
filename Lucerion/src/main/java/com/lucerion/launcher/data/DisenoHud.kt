@@ -12,12 +12,21 @@ import com.tungsten.fclauncher.keycodes.FCLKeycodes
  */
 data class ControlHud(
     val id: String,          // predefinidos: movimiento/salto/golpear/agacharse/chat/pausa/inventario/teclado
-    val tipo: String,        // "predefinido" | "tecla"
+    val tipo: String,        // "predefinido" | "tecla" | "raton"
     var x: Float,
     var y: Float,
     var tam: Int,
     val etiqueta: String? = null, // solo tipo "tecla"
     val tecla: Int = 0,           // FCLKeycodes, solo tipo "tecla"
+    /**
+     * Accion de raton, solo tipo "raton" (ver [AccionesRaton]).
+     *
+     * Existe para poder sacar interactuar y golpear del toque largo: mientras
+     * el boton del raton sigue pulsado, Minecraft repite la accion cinco
+     * veces por segundo, asi que mantener sobre una palanca la encendia y la
+     * apagaba sola. Con un boton propio, una pulsacion es una interaccion.
+     */
+    val accion: String? = null,
     /** Transparencia del control en el juego: 0.15 (casi invisible) a 1. */
     var opacidad: Float = 0.85f,
 )
@@ -90,6 +99,47 @@ object RepositorioDiseno {
     fun restablecer(contexto: Context) {
         contexto.getSharedPreferences("lucerion", Context.MODE_PRIVATE)
             .edit().remove(CLAVE).apply()
+    }
+}
+
+/** Acciones de ratón que puede llevar un botón del HUD. */
+object AccionesRaton {
+    /** Un clic derecho y se acabó: interactuar sin repetición. */
+    const val USAR = "usar"
+    /** Clic derecho mantenido: comer, tensar el arco, levantar el escudo. */
+    const val USAR_SOSTENIDO = "usar_sostenido"
+    /** Un clic izquierdo: un golpe. */
+    const val GOLPE = "golpe"
+    /** Clic izquierdo mantenido: picar de forma continua. */
+    const val GOLPE_SOSTENIDO = "golpe_sostenido"
+}
+
+/** Una opción del menú «Nuevo botón»: o una tecla, o una acción de ratón. */
+data class OpcionBoton(
+    val nombre: String,
+    val etiqueta: String,
+    val tipo: String,
+    val tecla: Int = 0,
+    val accion: String? = null,
+)
+
+/**
+ * Todo lo que se puede colgar de un botón nuevo.
+ *
+ * Las acciones de ratón van primero porque resuelven algo que el toque largo
+ * no puede: una pulsación, una interacción. Mantener el botón del ratón hace
+ * que Minecraft repita la acción cada 4 ticks, y eso es inevitable desde el
+ * lanzador —soltar el botón es justo lo que cancela comer o tensar el arco—,
+ * así que la salida es tener las dos cosas por separado.
+ */
+object CatalogoBotones {
+    val opciones: List<OpcionBoton> = listOf(
+        OpcionBoton("Interactuar — un solo clic derecho", "USAR", "raton", accion = AccionesRaton.USAR),
+        OpcionBoton("Interactuar sostenido — comer, arco, escudo", "COMER", "raton", accion = AccionesRaton.USAR_SOSTENIDO),
+        OpcionBoton("Golpear — un solo clic izquierdo", "GOLPE", "raton", accion = AccionesRaton.GOLPE),
+        OpcionBoton("Picar sostenido — clic izquierdo mantenido", "PICAR", "raton", accion = AccionesRaton.GOLPE_SOSTENIDO),
+    ) + CatalogoTeclas.disponibles.map { (nombre, codigo) ->
+        OpcionBoton("Tecla $nombre", nombre, "tecla", tecla = codigo)
     }
 }
 
