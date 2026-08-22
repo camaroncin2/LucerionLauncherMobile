@@ -16,7 +16,6 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -25,19 +24,21 @@ import com.tungsten.fclauncher.bridge.FCLBridgeCallback
 import com.tungsten.fclauncher.keycodes.LwjglGlfwKeycode
 
 /**
- * Superficie del juego + controles táctiles.
+ * Superficie del juego + controles táctiles con la distribución clásica de
+ * Bedrock (glifos vectoriales que replican los suyos — Java Edition no trae
+ * esas texturas):
  *
- * Esquema de control:
- *  · Cruceta abajo-izquierda: mantener = caminar (W/A/S/D). SALTO (mantener)
- *    y AGACHARSE (conmutador) abajo-derecha.
+ *  · Cruceta abajo-izquierda (flechas macizas W/A/S/D) con AGACHARSE al
+ *    centro (doble cheurón, conmutador). SALTO (rombo vacío) abajo-derecha.
+ *  · CHAT (globo de diálogo) arriba al centro: en juego pulsa T y abre el
+ *    teclado; en menús solo abre el teclado.
+ *  · Arriba a la derecha: PAUSA (ESC) · INVENTARIO (E) · TECLADO.
  *  · En juego (cámara agarrada): arrastrar = mirar. En la MITAD DERECHA:
  *    mantener quieto ≥250 ms = ROMPER (clic izquierdo sostenido hasta soltar);
- *    toque corto = usar/colocar (clic derecho); toque corto en la mitad
- *    izquierda = golpe rápido.
- *  · En menús (cursor libre): el dedo es el ratón; toque corto = clic.
- *  · Fila superior: ESC · E · ⌨ — press al tocar y release al soltar
- *    (mandarlos juntos en el mismo instante los perdía la cola de entrada).
- *  · ⌨ abre el teclado del sistema; lo escrito viaja al juego (chat, /login).
+ *    toque corto = usar/colocar (clic derecho); toque corto a la izquierda =
+ *    golpe rápido. En menús el dedo es el ratón.
+ *  · Todos los botones: press al tocar y release al soltar (mandarlos juntos
+ *    en el mismo instante los perdía la cola de entrada).
  */
 class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
@@ -46,12 +47,12 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         var dirJuego: java.io.File? = null
         private const val UMBRAL_ROMPER_MS = 250L
         private const val UMBRAL_MOVIMIENTO_PX2 = 100f
+        private const val TAM_BOTON_MENU = 46
     }
 
     private var cursorAgarrado = false
     private var cursorX = 0f
     private var cursorY = 0f
-    private var agachado = false
     private lateinit var entradaTexto: EditText
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
@@ -95,21 +96,28 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP or Gravity.END,
-            ).apply { topMargin = dp(10); rightMargin = dp(10) },
+            ).apply { topMargin = dp(8); rightMargin = dp(10) },
+        )
+        raiz.addView(
+            BotonTactil(this, BotonTactil.Glifo.CHAT, alPresionar = { abrirChat() }),
+            FrameLayout.LayoutParams(
+                dp(TAM_BOTON_MENU), dp(TAM_BOTON_MENU),
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+            ).apply { topMargin = dp(8) },
         )
         raiz.addView(
             crearCruceta(),
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM or Gravity.START,
-            ).apply { bottomMargin = dp(14); leftMargin = dp(14) },
+            ).apply { bottomMargin = dp(18); leftMargin = dp(18) },
         )
         raiz.addView(
-            crearBotonesAccion(),
+            botonTecla(BotonTactil.Glifo.SALTO, LwjglGlfwKeycode.KEY_SPACE),
             FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                dp(66), dp(66),
                 Gravity.BOTTOM or Gravity.END,
-            ).apply { bottomMargin = dp(14); rightMargin = dp(14) },
+            ).apply { bottomMargin = dp(46); rightMargin = dp(28) },
         )
 
         setContentView(raiz)
@@ -117,77 +125,68 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-    // ── Botones: press al tocar, release al soltar ───────────────────────────
+    // ── Botones estilo Bedrock: press al tocar, release al soltar ────────────
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun botonTecla(texto: String, codigo: Short, tam: Int = 56): Button =
-        Button(this).apply {
-            text = texto
-            alpha = 0.6f
-            minWidth = dp(tam)
-            minHeight = dp(tam)
-            setOnTouchListener { v, e ->
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        v.alpha = 1f
-                        puente?.pushEventKey(codigo.toInt(), 0, true)
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        v.alpha = 0.6f
-                        puente?.pushEventKey(codigo.toInt(), 0, false)
-                    }
-                }
-                true
-            }
-        }
+    private fun botonTecla(glifo: BotonTactil.Glifo, codigo: Short): BotonTactil =
+        BotonTactil(
+            this, glifo,
+            alPresionar = { puente?.pushEventKey(codigo.toInt(), 0, true) },
+            alSoltar = { puente?.pushEventKey(codigo.toInt(), 0, false) },
+        )
 
     private fun crearBarraSuperior(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
-        addView(botonTecla("ESC", LwjglGlfwKeycode.KEY_ESCAPE))
-        addView(botonTecla("E", LwjglGlfwKeycode.KEY_E))
-        addView(
-            Button(this@JuegoActivity).apply {
-                text = "⌨"
-                alpha = 0.6f
-                setOnClickListener { abrirTeclado() }
-            },
-        )
-    }
-
-    private fun crearCruceta(): FrameLayout {
-        val lado = 62
-        val cont = FrameLayout(this)
-        fun coloca(b: Button, x: Int, y: Int) {
-            cont.addView(
-                b,
-                FrameLayout.LayoutParams(dp(lado), dp(lado)).apply {
-                    leftMargin = dp(x); topMargin = dp(y)
+        fun agrega(v: View) {
+            addView(
+                v,
+                LinearLayout.LayoutParams(dp(TAM_BOTON_MENU), dp(TAM_BOTON_MENU)).apply {
+                    marginStart = dp(6)
                 },
             )
         }
-        coloca(botonTecla("▲", LwjglGlfwKeycode.KEY_W, lado), lado, 0)
-        coloca(botonTecla("◀", LwjglGlfwKeycode.KEY_A, lado), 0, lado)
-        coloca(botonTecla("▶", LwjglGlfwKeycode.KEY_D, lado), lado * 2, lado)
-        coloca(botonTecla("▼", LwjglGlfwKeycode.KEY_S, lado), lado, lado * 2)
+        agrega(botonTecla(BotonTactil.Glifo.PAUSA, LwjglGlfwKeycode.KEY_ESCAPE))
+        agrega(botonTecla(BotonTactil.Glifo.INVENTARIO, LwjglGlfwKeycode.KEY_E))
+        agrega(BotonTactil(this@JuegoActivity, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }))
+    }
+
+    /** Cruceta clásica de Bedrock: flechas en cruz con agacharse al centro. */
+    private fun crearCruceta(): FrameLayout {
+        val lado = 56
+        val paso = lado + 2
+        val cont = FrameLayout(this)
+        fun celda(v: View, col: Int, fila: Int) {
+            cont.addView(
+                v,
+                FrameLayout.LayoutParams(dp(lado), dp(lado)).apply {
+                    leftMargin = dp(col * paso); topMargin = dp(fila * paso)
+                },
+            )
+        }
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_ARRIBA, LwjglGlfwKeycode.KEY_W), 1, 0)
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_IZQUIERDA, LwjglGlfwKeycode.KEY_A), 0, 1)
+        celda(
+            // Agacharse como conmutador: mantenerlo mientras caminas es incómodo.
+            BotonTactil(
+                this, BotonTactil.Glifo.AGACHARSE, conmutador = true,
+                alPresionar = { puente?.pushEventKey(LwjglGlfwKeycode.KEY_LEFT_SHIFT.toInt(), 0, true) },
+                alSoltar = { puente?.pushEventKey(LwjglGlfwKeycode.KEY_LEFT_SHIFT.toInt(), 0, false) },
+            ),
+            1, 1,
+        )
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_DERECHA, LwjglGlfwKeycode.KEY_D), 2, 1)
+        celda(botonTecla(BotonTactil.Glifo.FLECHA_ABAJO, LwjglGlfwKeycode.KEY_S), 1, 2)
         return cont
     }
 
-    private fun crearBotonesAccion(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        // Agacharse: conmutador — mantenerlo mientras caminas es incómodo.
-        addView(
-            Button(this@JuegoActivity).apply {
-                text = "⇩"
-                alpha = 0.6f
-                minWidth = dp(56); minHeight = dp(56)
-                setOnClickListener {
-                    agachado = !agachado
-                    alpha = if (agachado) 1f else 0.6f
-                    puente?.pushEventKey(LwjglGlfwKeycode.KEY_LEFT_SHIFT.toInt(), 0, agachado)
-                }
-            },
-        )
-        addView(botonTecla("⤒", LwjglGlfwKeycode.KEY_SPACE, 64)) // saltar
+    /** En juego: T abre el chat del juego y luego llega el teclado; en menús solo teclado. */
+    private fun abrirChat() {
+        val p = puente ?: return
+        if (cursorAgarrado) {
+            tecla(p, LwjglGlfwKeycode.KEY_T.toInt())
+            handler.postDelayed({ abrirTeclado() }, 350)
+        } else {
+            abrirTeclado()
+        }
     }
 
     // ── Superficie ───────────────────────────────────────────────────────────
@@ -370,5 +369,31 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         puente?.let { tecla(it, LwjglGlfwKeycode.KEY_ESCAPE.toInt()) }
+    }
+
+    // ── Foco y visibilidad de la ventana GLFW (paridad con FCL) ─────────────
+    // Sin esto el juego cree seguir enfocado al minimizar y algunos mods
+    // (pausa automática, sonido) se comportan raro.
+
+    override fun onResume() {
+        super.onResume()
+        org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, 1)
+        org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 1)
+    }
+
+    override fun onPause() {
+        org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, 0)
+        org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0)
+        super.onPause()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_VISIBLE, 1)
+    }
+
+    override fun onStop() {
+        org.lwjgl.glfw.CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_VISIBLE, 0)
+        super.onStop()
     }
 }

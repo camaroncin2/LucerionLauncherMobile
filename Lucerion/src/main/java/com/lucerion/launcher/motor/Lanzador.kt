@@ -65,10 +65,13 @@ object Lanzador {
             MotorLucerion.cargarRutas(actividad)
             prepararJarsAuxiliares(actividad)
 
-            // Vsync forzado: sin el, el swapchain de Zink presenta con tearing
-            // (lineas verticales negras intermitentes). El puente nativo lo lee
-            // de este env en pojavInitOpenGL.
-            android.system.Os.setenv("FORCE_VSYNC", "true", true)
+            // Vsync forzado contra las franjas negras verticales de Zink.
+            // OJO: addCommonEnv de FCLauncher escribe FORCE_VSYNC=false DESPUES
+            // de cualquier Os.setenv (por eso nunca surtio efecto, ni en la
+            // Fase 0 con FCL). El unico canal que gana es el env personalizado
+            // (prefs "launcher"/"env"), que se aplica al final.
+            actividad.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+                .edit().putString("env", "FORCE_VSYNC=true").apply()
 
             val repo = InstaladorJuego.repositorio(dirInstancia)
             val version = MaintainTask.maintain(
