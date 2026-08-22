@@ -98,11 +98,6 @@ object Lanzador {
             MotorLucerion.cargarRutas(actividad)
             prepararJarsAuxiliares(actividad)
 
-            // Vsync forzado contra las franjas negras verticales de Zink.
-            // OJO: addCommonEnv de FCLauncher escribe FORCE_VSYNC=false DESPUES
-            // de cualquier Os.setenv (por eso nunca surtio efecto, ni en la
-            // Fase 0 con FCL). El unico canal que gana es el env personalizado
-            // (prefs "launcher"/"env"), que se aplica al final.
             // Variables de entorno derivadas de Ajustes (vsync, presentacion
             // Vulkan, interruptores de Turnip). Van por prefs "launcher"/"env"
             // porque es el UNICO canal que addCommonEnv no pisa.
@@ -117,9 +112,33 @@ object Lanzador {
             )
 
             // Cuenta libre: mismo UUID determinista que usa Minecraft offline.
-            val cuenta = OfflineAccountFactory(
+            // Si el jugador eligió skin, viaja con la cuenta — el motor la
+            // sirve por su Yggdrasil interno, así el servidor y los demás
+            // jugadores la ven.
+            val fabrica = OfflineAccountFactory(
                 SimpleAuthlibInjectorArtifactProvider(Paths.get(FCLPath.AUTHLIB_INJECTOR_PATH)),
-            ).create(apodo, OfflineAccountFactory.getUUIDFromUserName(apodo))
+            )
+            val uuidCuenta = OfflineAccountFactory.getUUIDFromUserName(apodo)
+            val archivoSkin = com.lucerion.launcher.data.RepositorioSkin.archivoSkin(actividad)
+            val cuenta = if (archivoSkin.isFile) {
+                val modelo = if (com.lucerion.launcher.data.RepositorioSkin.modeloDelgado(actividad)) {
+                    com.tungsten.fclcore.auth.yggdrasil.TextureModel.ALEX
+                } else {
+                    com.tungsten.fclcore.auth.yggdrasil.TextureModel.STEVE
+                }
+                fabrica.create(
+                    null, apodo, null, null,
+                    OfflineAccountFactory.AdditionalData(
+                        uuidCuenta,
+                        com.tungsten.fclcore.auth.offline.Skin(
+                            com.tungsten.fclcore.auth.offline.Skin.Type.LOCAL_FILE,
+                            modelo, archivoSkin.absolutePath, null,
+                        ),
+                    ),
+                )
+            } else {
+                fabrica.create(apodo, uuidCuenta)
+            }
             val credenciales = cuenta.playOffline()
 
             // Memoria: la de Ajustes si el jugador fijo una; si no, automatica.

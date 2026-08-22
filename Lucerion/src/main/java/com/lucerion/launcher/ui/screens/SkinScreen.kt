@@ -1,0 +1,229 @@
+package com.lucerion.launcher.ui.screens
+
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.dp
+import com.lucerion.launcher.data.RepositorioSkin
+import com.lucerion.launcher.ui.skin.VistaSkin3D
+import com.lucerion.launcher.ui.theme.Bg3
+import com.lucerion.launcher.ui.theme.Oro
+import com.lucerion.launcher.ui.theme.OroClaro
+import com.lucerion.launcher.ui.theme.OroProfundo
+import com.lucerion.launcher.ui.theme.TextoSuave
+
+/**
+ * Skin del jugador: elegirla, verla en 3D girándola con el dedo y decidir el
+ * modelo del cuerpo. La skin elegida entra al juego — el motor la sirve a
+ * través de su propio servidor de sesiones para cuentas libres.
+ */
+@Composable
+fun SkinScreen() {
+    val contexto = LocalContext.current
+
+    var bitmap by remember { mutableStateOf<Bitmap?>(RepositorioSkin.cargarBitmap(contexto)) }
+    var delgada by remember { mutableStateOf(RepositorioSkin.modeloDelgado(contexto)) }
+    var vista3D by remember { mutableStateOf(RepositorioSkin.vista3D(contexto)) }
+    var aviso by remember { mutableStateOf<String?>(null) }
+
+    val elegir = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            aviso = RepositorioSkin.importar(contexto, uri)
+            if (aviso == null) bitmap = RepositorioSkin.cargarBitmap(contexto)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+    ) {
+        Text("Tu skin", style = MaterialTheme.typography.displayLarge, color = OroClaro)
+        Text(
+            "Así te ven los demás en Cretania. Elige una imagen de skin de " +
+                "Minecraft (64×64) y gírala con el dedo para revisarla por todos lados.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextoSuave,
+        )
+        Spacer(Modifier.height(18.dp))
+
+        // ── Escenario del previsualizador ────────────────────────────────────
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(340.dp)
+                .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(16.dp)),
+            color = Bg3,
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            val bmp = bitmap
+            when {
+                bmp == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Todavía no elegiste una skin.\nSin skin, entras con el aspecto por defecto.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSuave,
+                    )
+                }
+
+                vista3D -> AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx -> VistaSkin3D(ctx) },
+                    update = { vista ->
+                        vista.ponerTextura(bmp)
+                        vista.ponerModeloDelgado(delgada)
+                    },
+                )
+
+                else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    // Vista plana: la textura tal cual, útil para revisar
+                    // detalles o comprobar que el archivo es el correcto.
+                    Image(
+                        bitmap = bmp.asImageBitmap(),
+                        contentDescription = "Textura de la skin",
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .aspectRatio(bmp.width.toFloat() / bmp.height),
+                        contentScale = ContentScale.Fit,
+                        filterQuality = FilterQuality.None, // pixel art nítido
+                    )
+                }
+            }
+        }
+        if (bitmap != null && vista3D) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Arrastra sobre el modelo para girarlo e inclinarlo.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave.copy(alpha = 0.7f),
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        aviso?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            Spacer(Modifier.height(10.dp))
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BotonBorde(if (bitmap == null) "ELEGIR SKIN" else "CAMBIAR SKIN") {
+                aviso = null
+                elegir.launch(arrayOf("image/png"))
+            }
+            if (bitmap != null) {
+                BotonBorde("QUITAR") {
+                    RepositorioSkin.quitar(contexto)
+                    bitmap = null
+                    aviso = null
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        TarjetaOpcion(
+            titulo = "Vista en 3D",
+            explicacion = "Muestra tu personaje armado y girable. Desactívala para ver la " +
+                "imagen plana de la textura, o si el previsualizador te va lento.",
+            valor = vista3D,
+            alCambiar = {
+                vista3D = it
+                RepositorioSkin.guardarVista3D(contexto, it)
+            },
+        )
+        TarjetaOpcion(
+            titulo = "Modelo delgado (Alex)",
+            explicacion = "Brazos de 3 píxeles en vez de 4. Actívalo si tu skin fue hecha " +
+                "para el modelo delgado; si los brazos se ven cortados o estirados, es esto.",
+            valor = delgada,
+            alCambiar = {
+                delgada = it
+                RepositorioSkin.guardarModeloDelgado(contexto, it)
+            },
+        )
+    }
+}
+
+@Composable
+private fun BotonBorde(texto: String, alPulsar: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .border(1.dp, Oro, RoundedCornerShape(10.dp))
+            .clickable(onClick = alPulsar)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+    ) {
+        Text(texto, style = MaterialTheme.typography.labelLarge, color = OroClaro)
+    }
+}
+
+@Composable
+private fun TarjetaOpcion(
+    titulo: String,
+    explicacion: String,
+    valor: Boolean,
+    alCambiar: (Boolean) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(12.dp)),
+        color = Bg3,
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(titulo, style = MaterialTheme.typography.titleMedium, color = OroClaro)
+                Text(explicacion, style = MaterialTheme.typography.bodyMedium, color = TextoSuave)
+            }
+            Spacer(Modifier.width(14.dp))
+            Switch(
+                checked = valor,
+                onCheckedChange = alCambiar,
+                colors = SwitchDefaults.colors(checkedTrackColor = Oro),
+            )
+        }
+    }
+}
