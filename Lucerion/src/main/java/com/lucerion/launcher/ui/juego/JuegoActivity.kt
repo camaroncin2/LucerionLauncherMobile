@@ -197,15 +197,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         return cont
     }
 
-    /** En juego: T abre el chat del juego y luego llega el teclado; en menús solo teclado. */
+    /**
+     * Solo abre el chat del juego (T), sin desplegar el teclado: el teclado
+     * sale unicamente del boton con su icono (arriba a la derecha).
+     */
     private fun abrirChat() {
         val p = puente ?: return
-        if (cursorAgarrado) {
-            tecla(p, LwjglGlfwKeycode.KEY_T.toInt())
-            handler.postDelayed({ abrirTeclado() }, 350)
-        } else {
-            abrirTeclado()
-        }
+        tecla(p, LwjglGlfwKeycode.KEY_T.toInt())
     }
 
     // ── Superficie ───────────────────────────────────────────────────────────
