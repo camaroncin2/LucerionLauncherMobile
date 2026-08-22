@@ -27,6 +27,33 @@ object RepositorioCuenta {
             .apply()
     }
 
+    // ── Cuenta de Microsoft ─────────────────────────────────────────────────
+    // Se guarda el mapa que produce el motor (incluye el token de refresco,
+    // no la contraseña: Lucerion nunca la ve ni la puede ver).
+
+    private const val CLAVE_MICROSOFT = "cuenta_microsoft"
+
+    fun guardarCuentaMicrosoft(context: Context, datos: Map<Any, Any>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(CLAVE_MICROSOFT, com.google.gson.Gson().toJson(datos))
+            .apply()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun leerCuentaMicrosoft(context: Context): Map<Any, Any>? {
+        val crudo = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(CLAVE_MICROSOFT, null) ?: return null
+        return runCatching {
+            com.google.gson.Gson().fromJson(crudo, Map::class.java) as Map<Any, Any>
+        }.getOrNull()
+    }
+
+    fun olvidarCuentaMicrosoft(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().remove(CLAVE_MICROSOFT).apply()
+    }
+
     /**
      * Reglas de nombre de Minecraft: 3-16 caracteres, letras sin acentos,
      * números y guion bajo. Devuelve el problema en palabras del jugador,

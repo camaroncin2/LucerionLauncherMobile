@@ -28,6 +28,13 @@ fun credencial(clave: String, env: String, porDefecto: String? = null): String? 
 
 val hayFirma = propsFirma.exists() || System.getenv("LUCERION_KEYSTORE_PASSWORD") != null
 
+// local.properties: donde el SDK ya guarda ajustes de máquina (git lo ignora).
+val propsLocales = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun propiedadLocal(clave: String): String? = propsLocales.getProperty(clave)
+
 android {
     namespace = "com.lucerion.launcher"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -38,6 +45,20 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
+
+        // Identificador de la aplicación de Azure para el inicio de sesión con
+        // Microsoft. Se define en local.properties o como variable de entorno
+        // (nunca en el repositorio, que es público). Vacío = la app explica
+        // que la opción no está configurada, en vez de fallar de forma rara.
+        buildConfigField(
+            "String",
+            "OAUTH_CLIENT_ID",
+            "\"" + (
+                credencial("oauthClientId", "LUCERION_OAUTH_CLIENT_ID")
+                    ?: propiedadLocal("lucerion.oauthClientId")
+                    ?: ""
+                ) + "\"",
+        )
     }
 
     // Sin credenciales, el APK de release sale sin firmar y el resto de tareas

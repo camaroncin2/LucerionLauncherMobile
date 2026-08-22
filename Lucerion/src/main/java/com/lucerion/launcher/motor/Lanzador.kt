@@ -115,6 +115,20 @@ object Lanzador {
             // Si el jugador eligió skin, viaja con la cuenta — el motor la
             // sirve por su Yggdrasil interno, así el servidor y los demás
             // jugadores la ven.
+            // Con sesión de Microsoft se entra con la cuenta real (nombre y
+            // skin oficiales); si falla o no hay, se sigue con la cuenta libre
+            // — nunca se bloquea el acceso al servidor por esto.
+            val cuentaMs = com.lucerion.launcher.data.RepositorioCuenta
+                .leerCuentaMicrosoft(actividad)
+                ?.let { ServicioMicrosoft.desdeAlmacenamiento(it) }
+            if (cuentaMs != null) {
+                val credencialesMs = runCatching { cuentaMs.logIn() }.getOrNull()
+                if (credencialesMs != null) {
+                    return@withContext lanzarCon(actividad, dirInstancia, repo, version, credencialesMs)
+                }
+                android.util.Log.w("LucerionMotor", "Sesion de Microsoft no utilizable; se usa cuenta libre")
+            }
+
             val fabrica = OfflineAccountFactory(
                 SimpleAuthlibInjectorArtifactProvider(Paths.get(FCLPath.AUTHLIB_INJECTOR_PATH)),
             )
@@ -141,67 +155,81 @@ object Lanzador {
             }
             val credenciales = cuenta.playOffline()
 
-            // Memoria: la de Ajustes si el jugador fijo una; si no, automatica.
-            val memoria = com.lucerion.launcher.data.RepositorioAjustes.memoriaMb(actividad)
-                .takeIf { it > 0 } ?: memoriaMb(actividad)
-            val metrics = actividad.resources.displayMetrics
-            val ancho = maxOf(metrics.widthPixels, metrics.heightPixels)
-            val alto = minOf(metrics.widthPixels, metrics.heightPixels)
+            lanzarCon(actividad, dirInstancia, repo, version, credenciales)
+        }
 
-            val opciones = LaunchOptions.Builder()
-                .setGameDir(dirInstancia)
-                .setJava(JavaManager.getSuitableJavaVersion(version))
-                .setRenderer(MotorLucerion.rendererZink)
-                .setVkDriverSystem(false)
-                .setPojavBigCore(false)
-                .setWidth(ancho)
-                .setHeight(alto)
-                .setMaxMemory(memoria)
-                .setMinMemory(1024)
-                .setVersionName(InstaladorJuego.NOMBRE_VERSION)
-                .setProfileName("Lucerion")
-                .setServerIp(SERVIDOR) // JUGAR = entrar a Cretania
-                // El motor exige el UUID en las opciones (getConfigurations hace
-                // replace sobre el sin validar). 32 hex sin guiones = "custom".
-                .setUUid(credenciales.uuid.toString().replace("-", ""))
-                .create()
+    /**
+     * Tramo común del lanzamiento, sea cual sea el tipo de cuenta: opciones,
+     * puente del motor y apertura de la Activity del juego.
+     */
+    private suspend fun lanzarCon(
+        actividad: Activity,
+        dirInstancia: File,
+        repo: com.tungsten.fclcore.game.DefaultGameRepository,
+        version: com.tungsten.fclcore.game.Version,
+        credenciales: com.tungsten.fclcore.auth.AuthInfo,
+    ) {
+        // Memoria: la de Ajustes si el jugador fijo una; si no, automatica.
+        val memoria = com.lucerion.launcher.data.RepositorioAjustes.memoriaMb(actividad)
+            .takeIf { it > 0 } ?: memoriaMb(actividad)
+        val metrics = actividad.resources.displayMetrics
+        val ancho = maxOf(metrics.widthPixels, metrics.heightPixels)
+        val alto = minOf(metrics.widthPixels, metrics.heightPixels)
 
-            val lanzador = DefaultLauncher(actividad, repo, version, credenciales, opciones)
-            version.libraries.forEach { libreria ->
-                val nombre = libreria.name ?: return@forEach
-                if (nombre.startsWith("net.java.dev.jna:jna:")) lanzador.setJnaVersion(libreria.version)
-                if (nombre.startsWith("org.lwjgl:lwjgl:")) lanzador.setLwjglVersion(libreria.version)
-            }
+        val opciones = LaunchOptions.Builder()
+            .setGameDir(dirInstancia)
+            .setJava(JavaManager.getSuitableJavaVersion(version))
+            .setRenderer(MotorLucerion.rendererZink)
+            .setVkDriverSystem(false)
+            .setPojavBigCore(false)
+            .setWidth(ancho)
+            .setHeight(alto)
+            .setMaxMemory(memoria)
+            .setMinMemory(1024)
+            .setVersionName(InstaladorJuego.NOMBRE_VERSION)
+            .setProfileName("Lucerion")
+            .setServerIp(SERVIDOR) // JUGAR = entrar a Cretania
+            // El motor exige el UUID en las opciones (getConfigurations hace
+            // replace sobre el sin validar). 32 hex sin guiones = "custom".
+            .setUUid(credenciales.uuid.toString().replace("-", ""))
+            .create()
 
-            val puente: FCLBridge = lanzador.launch()
+        val lanzador = DefaultLauncher(actividad, repo, version, credenciales, opciones)
+        version.libraries.forEach { libreria ->
+            val nombre = libreria.name ?: return@forEach
+            if (nombre.startsWith("net.java.dev.jna:jna:")) lanzador.setJnaVersion(libreria.version)
+            if (nombre.startsWith("org.lwjgl:lwjgl:")) lanzador.setLwjglVersion(libreria.version)
+        }
 
-            // El resto va en el hilo principal: CallbackBridge se inicializa con
-            // el Choreographer de Android (exige un Looper), y FCL hace este
-            // mismo bloque en Schedulers.androidUIThread().
-            withContext(Dispatchers.Main) {
-                puente.setGameDir(repo.getRunDirectory(version.id).absolutePath)
-                puente.setJava("21")
-                puente.setRenderer(MotorLucerion.rendererZink.name)
-                puente.setScaleFactor(1.0)
-                puente.setHasTouchController(false)
-                CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
+        val puente: FCLBridge = lanzador.launch()
 
-                // options.txt por defecto (idioma, controles sanos) la primera vez;
-            // la Activity le escribira la resolucion exacta encima.
-            val dirEjecucion = repo.getRunDirectory(version.id)
-            val opcionesTxt = File(dirEjecucion, "options.txt")
-            if (!opcionesTxt.isFile) {
-                runCatching {
-                    actividad.assets.open("options.txt").use { entrada ->
-                        opcionesTxt.outputStream().use { salida -> entrada.copyTo(salida) }
-                    }
+        // El resto va en el hilo principal: CallbackBridge se inicializa con
+        // el Choreographer de Android (exige un Looper), y FCL hace este
+        // mismo bloque en Schedulers.androidUIThread().
+        withContext(Dispatchers.Main) {
+            puente.setGameDir(repo.getRunDirectory(version.id).absolutePath)
+            puente.setJava("21")
+            puente.setRenderer(MotorLucerion.rendererZink.name)
+            puente.setScaleFactor(1.0)
+            puente.setHasTouchController(false)
+            CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
+
+            // options.txt por defecto (idioma, controles sanos) la primera vez;
+        // la Activity le escribira la resolucion exacta encima.
+        val dirEjecucion = repo.getRunDirectory(version.id)
+        val opcionesTxt = File(dirEjecucion, "options.txt")
+        if (!opcionesTxt.isFile) {
+            runCatching {
+                actividad.assets.open("options.txt").use { entrada ->
+                    opcionesTxt.outputStream().use { salida -> entrada.copyTo(salida) }
                 }
             }
-            aplicarPerfilRendimiento(dirEjecucion)
+        }
+        aplicarPerfilRendimiento(dirEjecucion)
 
             JuegoActivity.dirJuego = dirEjecucion
             JuegoActivity.puente = puente
-                actividad.startActivity(Intent(actividad, JuegoActivity::class.java))
-            }
+            actividad.startActivity(Intent(actividad, JuegoActivity::class.java))
         }
+    }
 }

@@ -3,7 +3,6 @@ package com.lucerion.launcher.ui.screens
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,9 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
@@ -60,7 +55,7 @@ fun SkinScreen() {
     // servidor mientras no elijas una.
     var bitmap by remember { mutableStateOf<Bitmap?>(RepositorioSkin.cargarBitmap(contexto)) }
     val propia = bitmap != null
-    val mostrada = bitmap ?: com.lucerion.launcher.ui.skin.SkinPorDefecto.bitmap()
+    val mostrada = bitmap ?: com.lucerion.launcher.ui.skin.SkinPorDefecto.bitmap(contexto)
     var delgada by remember { mutableStateOf(RepositorioSkin.modeloDelgado(contexto)) }
     var vista3D by remember { mutableStateOf(RepositorioSkin.vista3D(contexto)) }
     var aviso by remember { mutableStateOf<String?>(null) }
@@ -98,41 +93,23 @@ fun SkinScreen() {
             color = Bg3,
             shape = RoundedCornerShape(16.dp),
         ) {
-            val bmp = mostrada
-            when {
-                vista3D -> AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { ctx -> VistaSkin3D(ctx) },
-                    update = { vista ->
-                        vista.ponerTextura(bmp)
-                        vista.ponerModeloDelgado(delgada)
-                    },
-                )
-
-                else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    // Vista plana: la textura tal cual, útil para revisar
-                    // detalles o comprobar que el archivo es el correcto.
-                    Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = "Textura de la skin",
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .aspectRatio(bmp.width.toFloat() / bmp.height),
-                        contentScale = ContentScale.Fit,
-                        filterQuality = FilterQuality.None, // pixel art nítido
-                    )
-                }
-            }
+            // Siempre el modelo armado: el interruptor solo decide si se
+            // puede girar (3D) o queda de frente y quieto (vista plana).
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx -> VistaSkin3D(ctx) },
+                update = { vista ->
+                    vista.ponerTextura(mostrada)
+                    vista.ponerModeloDelgado(delgada)
+                    vista.ponerInteractivo(vista3D)
+                },
+            )
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            if (propia) {
-                if (vista3D) "Arrastra sobre el modelo para girarlo e inclinarlo."
-                else "Textura de tu skin."
-            } else {
-                "Aspecto clásico: es el que usas mientras no elijas una skin propia." +
-                    if (vista3D) " Arrastra para girarlo." else ""
-            },
+            (if (propia) "Tu skin. " else "Aspecto clásico: el que usas mientras no elijas una skin propia. ") +
+                (if (vista3D) "Arrastra sobre el modelo para girarlo e inclinarlo."
+                else "Vista fija de frente."),
             style = MaterialTheme.typography.bodyMedium,
             color = TextoSuave.copy(alpha = 0.7f),
         )
@@ -162,8 +139,8 @@ fun SkinScreen() {
 
         TarjetaOpcion(
             titulo = "Vista en 3D",
-            explicacion = "Muestra tu personaje armado y girable. Desactívala para ver la " +
-                "imagen plana de la textura, o si el previsualizador te va lento.",
+            explicacion = "Deja girar el personaje con el dedo para revisarlo por todos " +
+                "lados. Al desactivarla se ve de frente y quieto, como una figura plana.",
             valor = vista3D,
             alCambiar = {
                 vista3D = it

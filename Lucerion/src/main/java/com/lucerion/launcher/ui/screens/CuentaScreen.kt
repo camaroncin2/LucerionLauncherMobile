@@ -45,14 +45,14 @@ import com.lucerion.launcher.ui.theme.Oro
 import com.lucerion.launcher.ui.theme.OroClaro
 import com.lucerion.launcher.ui.theme.OroProfundo
 import com.lucerion.launcher.ui.theme.TextoSuave
+import kotlinx.coroutines.launch
 
 /**
  * Elección del apodo — lo único imprescindible para jugar.
  *
  * La validación corre en vivo y el error habla en palabras del jugador
- * (principio "ninguna opción sin explicar"). La cuenta Microsoft aparece
- * como tarjeta informativa: existe, es opcional, y todavía no está — las
- * tres cosas dichas de frente.
+ * (principio "ninguna opción sin explicar"). Debajo, el inicio de sesión con
+ * Microsoft: opcional y explicado — Cretania se juega igual con solo el apodo.
  */
 @Composable
 fun CuentaScreen(
@@ -157,30 +157,134 @@ fun CuentaScreen(
 
             Spacer(Modifier.height(28.dp))
 
-            // Microsoft: presente y explicada, deshabilitada sin disimulo.
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, OroProfundo.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
-                color = Bg3.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+            BloqueMicrosoft()
+        }
+    }
+}
+
+/**
+ * Cuenta de Microsoft: la que compró Minecraft Java. Es OPCIONAL — Cretania
+ * autentica con su propio sistema y el apodo basta para entrar — pero permite
+ * jugar con tu identidad real y tu skin oficial.
+ *
+ * El flujo es de código de dispositivo: la app muestra un código corto y la
+ * dirección; el jugador lo autoriza desde donde quiera (incluso otro
+ * dispositivo) y la app lo detecta sola. La contraseña se escribe SOLO en la
+ * página de Microsoft: Lucerion nunca la ve.
+ */
+@Composable
+private fun BloqueMicrosoft() {
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    val ambito = androidx.compose.runtime.rememberCoroutineScope()
+
+    var sesionGuardada by remember {
+        mutableStateOf(RepositorioCuenta.leerCuentaMicrosoft(contexto) != null)
+    }
+    var codigo by remember { mutableStateOf<com.lucerion.launcher.motor.ServicioMicrosoft.Codigo?>(null) }
+    var esperando by remember { mutableStateOf(false) }
+    var mensaje by remember { mutableStateOf<String?>(null) }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(12.dp)),
+        color = Bg3,
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Cuenta de Microsoft (opcional)",
+                style = MaterialTheme.typography.titleMedium,
+                color = OroClaro,
+            )
+            Text(
+                "Para entrar a Cretania alcanza con el apodo. Inicia sesión con Microsoft " +
+                    "si quieres jugar con tu cuenta oficial de Minecraft y su skin. Tu " +
+                    "contraseña se escribe solo en la página de Microsoft: el launcher nunca la ve.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave,
+            )
+
+            when {
+                !com.lucerion.launcher.motor.ServicioMicrosoft.disponible() -> Text(
+                    "Esta opción todavía no está habilitada en esta versión del launcher: " +
+                        "requiere que el estudio registre la aplicación ante Microsoft.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave.copy(alpha = 0.75f),
+                )
+
+                sesionGuardada -> {
                     Text(
-                        text = stringResource(R.string.cuenta_microsoft_titulo),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = OroClaro.copy(alpha = 0.7f),
+                        "Sesión iniciada. Se usará al entrar al juego.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = OroClaro,
                     )
+                    BotonBordeCuenta("CERRAR SESIÓN") {
+                        RepositorioCuenta.olvidarCuentaMicrosoft(contexto)
+                        sesionGuardada = false
+                        mensaje = null
+                    }
+                }
+
+                codigo != null -> {
+                    val c = codigo!!
                     Text(
-                        text = stringResource(R.string.cuenta_microsoft_detalle),
+                        "1) Entra en ${c.url}\n2) Escribe este código:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextoSuave,
                     )
+                    Text(
+                        c.codigo,
+                        style = MaterialTheme.typography.displayLarge,
+                        color = OroClaro,
+                    )
+                    Text(
+                        "Esperando a que autorices… puedes hacerlo desde este teléfono o " +
+                            "desde otro dispositivo.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextoSuave.copy(alpha = 0.75f),
+                    )
+                }
+
+                else -> BotonBordeCuenta(if (esperando) "CONECTANDO…" else "INICIAR SESIÓN CON MICROSOFT") {
+                    if (esperando) return@BotonBordeCuenta
+                    esperando = true
+                    mensaje = null
+                    ambito.launch {
+                        try {
+                            val cuenta = com.lucerion.launcher.motor.ServicioMicrosoft
+                                .iniciarSesion { recibido -> codigo = recibido }
+                            RepositorioCuenta.guardarCuentaMicrosoft(contexto, cuenta.toStorage())
+                            sesionGuardada = true
+                            mensaje = null
+                        } catch (e: Exception) {
+                            mensaje = "No se pudo iniciar sesión: ${e.message ?: e.javaClass.simpleName}"
+                        } finally {
+                            esperando = false
+                            codigo = null
+                        }
+                    }
                 }
             }
+
+            mensaje?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
         }
+    }
+}
+
+@Composable
+private fun BotonBordeCuenta(texto: String, alPulsar: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .border(1.dp, Oro, RoundedCornerShape(10.dp))
+            .clickable(onClick = alPulsar)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+    ) {
+        Text(texto, style = MaterialTheme.typography.labelLarge, color = OroClaro)
     }
 }

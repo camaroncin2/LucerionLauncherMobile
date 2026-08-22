@@ -29,6 +29,8 @@ class VistaSkin3D(context: Context) : View(context) {
     private var giro = -0.5f      // radianes, eje vertical
     private var inclinacion = 0f  // radianes, eje horizontal
     private var brazoDelgado = false
+    /** Con el giro bloqueado la vista queda de frente y no responde al dedo. */
+    private var interactivo = true
 
     private val pintura = Paint(Paint.FILTER_BITMAP_FLAG.inv()).apply {
         isAntiAlias = false
@@ -43,6 +45,18 @@ class VistaSkin3D(context: Context) : View(context) {
 
     fun ponerModeloDelgado(delgado: Boolean) {
         brazoDelgado = delgado
+        invalidate()
+    }
+
+    /**
+     * Modo plano: el mismo personaje, pero de frente y quieto — es la vista
+     * "2D" de la app. Al reactivarlo vuelve la pose de tres cuartos.
+     */
+    fun ponerInteractivo(activo: Boolean) {
+        if (interactivo == activo) return
+        interactivo = activo
+        giro = if (activo) -0.5f else 0f
+        inclinacion = 0f
         invalidate()
     }
 
@@ -69,26 +83,38 @@ class VistaSkin3D(context: Context) : View(context) {
     private fun modelo(): List<Caja> {
         val anchoBrazo = if (brazoDelgado) 3f else 4f
         val xBrazo = 4f + anchoBrazo / 2f
-        return listOf(
+        // Formato clásico (64×32): no existen las regiones del lado izquierdo
+        // ni las capas exteriores salvo el sombrero — el juego refleja el lado
+        // derecho. Aquí se hace lo mismo para que se vea igual que en partida.
+        val clasica = (textura?.height ?: 64) == 32
+
+        val cajas = mutableListOf(
             // Cabeza y su sombrero
             Caja(0f, -12f, 0f, 8f, 8f, 8f, 0, 0),
             Caja(0f, -12f, 0f, 8.9f, 8.9f, 8.9f, 32, 0, capaExterior = true),
-            // Torso y chaqueta
+            // Torso
             Caja(0f, -2f, 0f, 8f, 12f, 4f, 16, 16),
-            Caja(0f, -2f, 0f, 8.7f, 12.7f, 4.7f, 16, 32, capaExterior = true),
-            // Brazo derecho (a la izquierda en pantalla) y su manga
+            // Brazo derecho (a la izquierda en pantalla)
             Caja(-xBrazo, -2f, 0f, anchoBrazo, 12f, 4f, 40, 16),
-            Caja(-xBrazo, -2f, 0f, anchoBrazo + 0.7f, 12.7f, 4.7f, 40, 32, capaExterior = true),
-            // Brazo izquierdo y manga
-            Caja(xBrazo, -2f, 0f, anchoBrazo, 12f, 4f, 32, 48),
-            Caja(xBrazo, -2f, 0f, anchoBrazo + 0.7f, 12.7f, 4.7f, 48, 48, capaExterior = true),
-            // Pierna derecha y pantalón
+            // Pierna derecha
             Caja(-2f, 10f, 0f, 4f, 12f, 4f, 0, 16),
-            Caja(-2f, 10f, 0f, 4.7f, 12.7f, 4.7f, 0, 32, capaExterior = true),
-            // Pierna izquierda y pantalón
-            Caja(2f, 10f, 0f, 4f, 12f, 4f, 16, 48),
-            Caja(2f, 10f, 0f, 4.7f, 12.7f, 4.7f, 0, 48, capaExterior = true),
         )
+
+        if (clasica) {
+            // Miembros izquierdos: misma textura que los derechos.
+            cajas += Caja(xBrazo, -2f, 0f, anchoBrazo, 12f, 4f, 40, 16)
+            cajas += Caja(2f, 10f, 0f, 4f, 12f, 4f, 0, 16)
+        } else {
+            cajas += Caja(xBrazo, -2f, 0f, anchoBrazo, 12f, 4f, 32, 48)
+            cajas += Caja(2f, 10f, 0f, 4f, 12f, 4f, 16, 48)
+            // Capas exteriores (chaqueta, mangas, pantalones)
+            cajas += Caja(0f, -2f, 0f, 8.7f, 12.7f, 4.7f, 16, 32, capaExterior = true)
+            cajas += Caja(-xBrazo, -2f, 0f, anchoBrazo + 0.7f, 12.7f, 4.7f, 40, 32, capaExterior = true)
+            cajas += Caja(xBrazo, -2f, 0f, anchoBrazo + 0.7f, 12.7f, 4.7f, 48, 48, capaExterior = true)
+            cajas += Caja(-2f, 10f, 0f, 4.7f, 12.7f, 4.7f, 0, 32, capaExterior = true)
+            cajas += Caja(2f, 10f, 0f, 4.7f, 12.7f, 4.7f, 0, 48, capaExterior = true)
+        }
+        return cajas
     }
 
     /** Las seis caras de una caja: vértices (índices) y rectángulo de textura. */
@@ -233,6 +259,7 @@ class VistaSkin3D(context: Context) : View(context) {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(evento: MotionEvent): Boolean {
+        if (!interactivo) return false
         when (evento.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
