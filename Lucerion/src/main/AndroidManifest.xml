@@ -45,6 +45,13 @@
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation"
             android:launchMode="singleTask" />
 
+        <!-- Editor de controles con previsualizacion (Ajustes -> Controles). -->
+        <activity
+            android:name=".ui.juego.EditorControlesActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard" />
+
         <!-- Primer plano durante la partida: sin el, Android mata el proceso
              (y la JVM del juego con el) a los segundos de minimizar. -->
         <service

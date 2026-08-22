@@ -21,6 +21,8 @@ class BotonTactil(
     context: Context,
     private val glifo: Glifo,
     private val conmutador: Boolean = false,
+    /** Si se define, se dibuja este texto en vez del glifo (botones personalizados). */
+    private val texto: String? = null,
     private val alPresionar: () -> Unit,
     private val alSoltar: () -> Unit = {},
     /**
@@ -94,6 +96,16 @@ class BotonTactil(
         val marco = RectF(inset, inset, w - inset, h - inset)
         canvas.drawRoundRect(marco, radio, radio, pintaFondo)
         canvas.drawRoundRect(marco, radio, radio, pintaBorde)
+
+        if (texto != null) {
+            pintaGlifo.style = Paint.Style.FILL
+            pintaGlifo.textAlign = Paint.Align.CENTER
+            pintaGlifo.textSize = h * if (texto.length <= 2) 0.42f else 0.26f
+            pintaGlifo.isFakeBoldText = true
+            val medio = (pintaGlifo.descent() + pintaGlifo.ascent()) / 2f
+            canvas.drawText(texto, w / 2f, h / 2f - medio, pintaGlifo)
+            return
+        }
 
         when (glifo) {
             Glifo.FLECHA_ARRIBA -> flecha(canvas, 0f)

@@ -63,6 +63,7 @@ fun AjustesScreen(alVolver: () -> Unit) {
     var sinLrz by remember { mutableStateOf(RepositorioAjustes.turnipSinLrz(contexto)) }
     var sysmem by remember { mutableStateOf(RepositorioAjustes.turnipSysmem(contexto)) }
     var reparacionPedida by remember { mutableStateOf(false) }
+    var apartado by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -72,13 +73,23 @@ fun AjustesScreen(alVolver: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 24.dp),
     ) {
         Text(
-            text = "← Volver",
+            text = if (apartado == null) "← Volver" else "← Ajustes",
             style = MaterialTheme.typography.titleMedium,
             color = OroClaro,
-            modifier = Modifier.clickable(onClick = alVolver),
+            modifier = Modifier.clickable { if (apartado == null) alVolver() else apartado = null },
         )
         Spacer(Modifier.height(14.dp))
-        Text("Ajustes", style = MaterialTheme.typography.displayLarge, color = OroClaro)
+        Text(
+            when (apartado) {
+                null -> "Ajustes"
+                "controles" -> "Controles"
+                "rendimiento" -> "Rendimiento"
+                "graficos" -> "Gráficos avanzados"
+                else -> "Partida"
+            },
+            style = MaterialTheme.typography.displayLarge,
+            color = OroClaro,
+        )
         Text(
             "Cada opción explica qué hace y cuándo usarla. Los cambios se aplican en la próxima partida.",
             style = MaterialTheme.typography.bodyMedium,
@@ -86,8 +97,26 @@ fun AjustesScreen(alVolver: () -> Unit) {
         )
         Spacer(Modifier.height(22.dp))
 
-        // ── Controles ────────────────────────────────────────────────────────
-        TituloSeccion("Controles")
+        if (apartado == null) {
+            TarjetaApartado(
+                "Controles",
+                "Palanca o cruceta, tamaño global y el editor visual para mover, agrandar y añadir botones.",
+            ) { apartado = "controles" }
+            TarjetaApartado(
+                "Rendimiento",
+                "Memoria del juego, sincronía vertical y presentación de video.",
+            ) { apartado = "rendimiento" }
+            TarjetaApartado(
+                "Gráficos avanzados",
+                "Interruptores experimentales del driver para cazar artefactos visuales.",
+            ) { apartado = "graficos" }
+            TarjetaApartado(
+                "Partida",
+                "Reparar la instalación del juego sin perder lo descargado.",
+            ) { apartado = "partida" }
+        }
+
+        if (apartado == "controles") {
         FilaInterruptor(
             titulo = "Usar cruceta en vez de palanca",
             explicacion = "La palanca (stick) permite diagonales y correr con doble toque; " +
@@ -110,8 +139,29 @@ fun AjustesScreen(alVolver: () -> Unit) {
             alSoltar = { RepositorioAjustes.guardarEscalaControles(contexto, escala) },
         )
 
-        // ── Rendimiento ──────────────────────────────────────────────────────
-        TituloSeccion("Rendimiento")
+        Tarjeta {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Editor de controles en pantalla", style = MaterialTheme.typography.titleMedium, color = OroClaro)
+                Text(
+                    "Previsualiza el HUD tal como se ve en el juego: arrastra cada control " +
+                        "para moverlo, ajusta su tamaño individual y añade botones " +
+                        "personalizados ligados a una tecla (p. ej. «B» para la mochila).",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave,
+                )
+                BotonSecundario("ABRIR EL EDITOR") {
+                    contexto.startActivity(
+                        android.content.Intent(
+                            contexto,
+                            com.lucerion.launcher.ui.juego.EditorControlesActivity::class.java,
+                        ),
+                    )
+                }
+            }
+        }
+        }
+
+        if (apartado == "rendimiento") {
         FilaDeslizador(
             titulo = "Memoria del juego",
             explicacion = "Cuánta RAM puede usar Minecraft. «Automática» calcula el 40 % de la " +
@@ -147,8 +197,9 @@ fun AjustesScreen(alVolver: () -> Unit) {
             },
         )
 
-        // ── Gráficos avanzados ───────────────────────────────────────────────
-        TituloSeccion("Gráficos avanzados (experimental)")
+        }
+
+        if (apartado == "graficos") {
         Text(
             "Interruptores del driver Turnip para cazar artefactos visuales. Actívalos de a " +
                 "UNO y prueba una partida: si el problema sigue, vuelve a desactivarlo.",
@@ -178,8 +229,9 @@ fun AjustesScreen(alVolver: () -> Unit) {
             },
         )
 
-        // ── Partida ──────────────────────────────────────────────────────────
-        TituloSeccion("Partida")
+        }
+
+        if (apartado == "partida") {
         Tarjeta {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Reparar instalación del juego", style = MaterialTheme.typography.titleMedium, color = OroClaro)
@@ -208,7 +260,23 @@ fun AjustesScreen(alVolver: () -> Unit) {
                 }
             }
         }
+        }
         Spacer(Modifier.height(28.dp))
+    }
+}
+
+@Composable
+private fun TarjetaApartado(titulo: String, explicacion: String, alPulsar: () -> Unit) {
+    Tarjeta {
+        Column(
+            Modifier
+                .clickable(onClick = alPulsar)
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(titulo, style = MaterialTheme.typography.titleMedium, color = OroClaro)
+            Text(explicacion, style = MaterialTheme.typography.bodyMedium, color = TextoSuave)
+        }
     }
 }
 

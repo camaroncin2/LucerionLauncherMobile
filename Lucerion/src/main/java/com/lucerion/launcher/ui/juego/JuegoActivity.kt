@@ -81,10 +81,17 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
-        window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        // Pantalla completa con la API moderna de insets: las barras del
+        // sistema (notificaciones, gesto atras) aparecen como CAPA transitoria
+        // sin redimensionar la ventana. Con la API vieja cada aparicion
+        // relayouteaba la superficie y eso pintaba las franjas negras al
+        // desplegar notificaciones, retroceder o minimizar.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
 
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
@@ -109,95 +116,93 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(44), Gravity.TOP),
         )
 
-        raiz.addView(
-            crearBarraSuperior(),
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.END,
-            ).apply { topMargin = dp(8); rightMargin = dp(10) },
-        )
-        raiz.addView(
-            BotonTactil(this, BotonTactil.Glifo.CHAT, alPresionar = { abrirChat() }),
-            FrameLayout.LayoutParams(
-                dpc(TAM_BOTON_MENU), dpc(TAM_BOTON_MENU),
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-            ).apply { topMargin = dp(8) },
-        )
-        // Movimiento: palanca (stick) por defecto; la cruceta queda disponible
-        // via preferencia hasta que exista la pantalla de ajustes.
+        // HUD construido desde el diseno editable (Ajustes -> Controles ->
+        // editor con previsualizacion). Posiciones en fraccion de pantalla.
+        val diseno = com.lucerion.launcher.data.RepositorioDiseno.cargar(this)
+        val metricas = resources.displayMetrics
+        val anchoP = maxOf(metricas.widthPixels, metricas.heightPixels)
+        val altoP = minOf(metricas.widthPixels, metricas.heightPixels)
         val usarCruceta = com.lucerion.launcher.data.RepositorioAjustes.usarCruceta(this)
-        if (usarCruceta) {
-            raiz.addView(
-                crearCruceta(),
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                    Gravity.BOTTOM or Gravity.START,
-                ).apply { bottomMargin = dp(18); leftMargin = dp(18) },
-            )
-        } else {
-            raiz.addView(
-                PalancaTactil(
-                    this,
-                    alCambiar = { adelante, atras, izquierda, derecha ->
-                        aplicarMovimiento(adelante, atras, izquierda, derecha)
-                    },
-                    alCorrer = { corriendo ->
-                        // Sprint de Bedrock: doble-toque adelante = CTRL mantenido.
-                        puente?.pushEventKey(FCLKeycodes.KEY_LEFTCTRL, 0, corriendo)
-                    },
-                ),
-                FrameLayout.LayoutParams(
-                    dpc(170), dpc(170),
-                    Gravity.BOTTOM or Gravity.START,
-                ).apply { bottomMargin = dp(22); leftMargin = dp(26) },
-            )
+
+        fun coloca(v: View, c: com.lucerion.launcher.data.ControlHud) {
+            val tamPx = dpc(c.tam)
+            val lp = FrameLayout.LayoutParams(tamPx, tamPx)
+            lp.leftMargin = (c.x * anchoP - tamPx / 2f).toInt().coerceIn(0, maxOf(0, anchoP - tamPx))
+            lp.topMargin = (c.y * altoP - tamPx / 2f).toInt().coerceIn(0, maxOf(0, altoP - tamPx))
+            raiz.addView(v, lp)
         }
-        raiz.addView(
-            botonTecla(BotonTactil.Glifo.SALTO, FCLKeycodes.KEY_SPACE),
-            FrameLayout.LayoutParams(
-                dpc(84), dpc(84),
-                Gravity.BOTTOM or Gravity.END,
-            ).apply { bottomMargin = dp(48); rightMargin = dp(30) },
-        )
-        raiz.addView(
-            // Golpear/romper vive SOLO aqui: mantener = clic izquierdo
-            // sostenido; la pantalla ya no golpea nunca. Arrastrar SIN soltar
-            // sigue moviendo la camara (un solo pulgar rompe y mira, como en
-            // Bedrock — el otro queda libre para el stick).
-            BotonTactil(
-                this, BotonTactil.Glifo.GOLPEAR,
-                alPresionar = {
-                    puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), true)
-                },
-                alSoltar = {
-                    puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), false)
-                },
-                alArrastrar = { dx, dy ->
-                    if (cursorAgarrado) {
-                        cursorX += dx
-                        cursorY += dy
-                        puente?.pushEventPointer(cursorX, cursorY)
+
+        for (c in diseno.controles) {
+            when {
+                c.tipo == "tecla" -> coloca(
+                    // Boton personalizado: etiqueta visible + tecla configurada.
+                    BotonTactil(
+                        this, BotonTactil.Glifo.PAUSA, texto = c.etiqueta ?: "?",
+                        alPresionar = { puente?.pushEventKey(c.tecla, 0, true) },
+                        alSoltar = { puente?.pushEventKey(c.tecla, 0, false) },
+                    ),
+                    c,
+                )
+
+                c.id == "movimiento" -> {
+                    if (usarCruceta) {
+                        coloca(crearCruceta(c.tam), c)
+                    } else {
+                        coloca(
+                            PalancaTactil(
+                                this,
+                                alCambiar = { adelante, atras, izquierda, derecha ->
+                                    aplicarMovimiento(adelante, atras, izquierda, derecha)
+                                },
+                                alCorrer = { corriendo ->
+                                    // Sprint de Bedrock: doble-toque adelante = CTRL mantenido.
+                                    puente?.pushEventKey(FCLKeycodes.KEY_LEFTCTRL, 0, corriendo)
+                                },
+                            ),
+                            c,
+                        )
                     }
-                },
-            ),
-            FrameLayout.LayoutParams(
-                dpc(84), dpc(84),
-                Gravity.BOTTOM or Gravity.END,
-            ).apply { bottomMargin = dp(48); rightMargin = dp(132) },
-        )
-        raiz.addView(
-            // Agacharse acompaña al salto cuando se usa la palanca (en la
-            // cruceta ya vive en el centro).
-            BotonTactil(
-                this, BotonTactil.Glifo.AGACHARSE, conmutador = true,
-                alPresionar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, true) },
-                alSoltar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, false) },
-            ),
-            FrameLayout.LayoutParams(
-                dpc(58), dpc(58),
-                Gravity.BOTTOM or Gravity.END,
-            ).apply { bottomMargin = dp(146); rightMargin = dp(42) },
-        )
+                }
+
+                c.id == "salto" -> coloca(botonTecla(BotonTactil.Glifo.SALTO, FCLKeycodes.KEY_SPACE), c)
+
+                c.id == "golpear" -> coloca(
+                    // Mantener = clic izquierdo sostenido; arrastrar sin soltar
+                    // sigue moviendo la camara (un pulgar rompe y mira).
+                    BotonTactil(
+                        this, BotonTactil.Glifo.GOLPEAR,
+                        alPresionar = {
+                            puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), true)
+                        },
+                        alSoltar = {
+                            puente?.pushEventMouseButton(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), false)
+                        },
+                        alArrastrar = { dx, dy ->
+                            if (cursorAgarrado) {
+                                cursorX += dx
+                                cursorY += dy
+                                puente?.pushEventPointer(cursorX, cursorY)
+                            }
+                        },
+                    ),
+                    c,
+                )
+
+                c.id == "agacharse" -> coloca(
+                    BotonTactil(
+                        this, BotonTactil.Glifo.AGACHARSE, conmutador = true,
+                        alPresionar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, true) },
+                        alSoltar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, false) },
+                    ),
+                    c,
+                )
+
+                c.id == "chat" -> coloca(BotonTactil(this, BotonTactil.Glifo.CHAT, alPresionar = { abrirChat() }), c)
+                c.id == "pausa" -> coloca(botonTecla(BotonTactil.Glifo.PAUSA, FCLKeycodes.KEY_ESC), c)
+                c.id == "inventario" -> coloca(botonTecla(BotonTactil.Glifo.INVENTARIO, FCLKeycodes.KEY_E), c)
+                c.id == "teclado" -> coloca(BotonTactil(this, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }), c)
+            }
+        }
 
         setContentView(raiz)
 
@@ -243,21 +248,6 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             alSoltar = { puente?.pushEventKey(codigo, 0, false) },
         )
 
-    private fun crearBarraSuperior(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        fun agrega(v: View) {
-            addView(
-                v,
-                LinearLayout.LayoutParams(dpc(TAM_BOTON_MENU), dpc(TAM_BOTON_MENU)).apply {
-                    marginStart = dp(6)
-                },
-            )
-        }
-        agrega(botonTecla(BotonTactil.Glifo.PAUSA, FCLKeycodes.KEY_ESC))
-        agrega(botonTecla(BotonTactil.Glifo.INVENTARIO, FCLKeycodes.KEY_E))
-        agrega(BotonTactil(this@JuegoActivity, BotonTactil.Glifo.TECLADO, alPresionar = { abrirTeclado() }))
-    }
-
     /** Estado deseado de W/A/S/D desde la palanca: solo se envían los cambios. */
     private val movimientoActivo = mutableMapOf(
         FCLKeycodes.KEY_W to false, FCLKeycodes.KEY_S to false,
@@ -279,8 +269,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     }
 
     /** Cruceta clásica de Bedrock: flechas en cruz con agacharse al centro. */
-    private fun crearCruceta(): FrameLayout {
-        val lado = 64
+    private fun crearCruceta(tamTotal: Int): FrameLayout {
+        val lado = (tamTotal - 4) / 3
         val paso = lado + 2
         val cont = FrameLayout(this)
         fun celda(v: View, col: Int, fila: Int) {
