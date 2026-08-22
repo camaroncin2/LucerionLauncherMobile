@@ -94,6 +94,9 @@ object Lanzador {
                 .setVersionName(InstaladorJuego.NOMBRE_VERSION)
                 .setProfileName("Lucerion")
                 .setServerIp(SERVIDOR) // JUGAR = entrar a Cretania
+                // El motor exige el UUID en las opciones (getConfigurations hace
+                // replace sobre el sin validar). 32 hex sin guiones = "custom".
+                .setUUid(credenciales.uuid.toString().replace("-", ""))
                 .create()
 
             val lanzador = DefaultLauncher(actividad, repo, version, credenciales, opciones)

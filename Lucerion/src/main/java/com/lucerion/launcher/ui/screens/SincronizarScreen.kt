@@ -307,6 +307,7 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
     val estadoJuego by InstaladorJuego.estado.collectAsState()
     val ambito = rememberCoroutineScope()
     var lanzando by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var errorLanzar by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -392,11 +393,24 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
                 Spacer(Modifier.height(12.dp))
                 BarraProgreso(indeterminada = true, fraccion = 0f)
             } else {
+                errorLanzar?.let { motivo ->
+                    Text(
+                        text = motivo,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
                 BotonDorado(texto = stringResource(R.string.juego_entrar)) {
                     lanzando = true
+                    errorLanzar = null
                     ambito.launch {
                         try {
                             Lanzador.lanzar(actividad, dirInstancia, apodo)
+                        } catch (e: Exception) {
+                            // Un fallo del lanzamiento se muestra, no tumba la app.
+                            errorLanzar = e.message ?: e.javaClass.simpleName
                         } finally {
                             lanzando = false
                         }
