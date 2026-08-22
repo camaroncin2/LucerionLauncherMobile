@@ -60,9 +60,6 @@ class MainActivity : ComponentActivity() {
                         when (seccion) {
                             Seccion.Inicio -> HomeScreen(
                                 versionApp = BuildConfig.VERSION_NAME,
-                                apodo = apodo,
-                                alAbrirCuenta = { seccion = Seccion.Cuenta },
-                                alAbrirAjustes = { seccion = Seccion.Ajustes },
                                 // El camino feliz se protege solo: sin apodo,
                                 // JUGAR lleva primero a elegirlo.
                                 alJugar = {

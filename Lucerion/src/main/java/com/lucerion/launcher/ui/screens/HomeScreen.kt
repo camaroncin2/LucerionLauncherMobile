@@ -46,6 +46,9 @@ import com.lucerion.launcher.ui.theme.TextoSuave
  * es UN toque — "JUGAR CRETANIA" — y todas las decisiones técnicas las toma el
  * launcher.
  *
+ * Junto al botón está tu personaje: se ve al entrar y se cambia sin rodeos.
+ * Cuenta y Ajustes ya no viven aquí — están en la barra de navegación.
+ *
  * Dos distribuciones:
  *  · Vertical: pila única (marca arriba, CTA al centro, secciones abajo).
  *  · Horizontal: dos paneles — marca a la izquierda, acción y secciones a la
@@ -55,9 +58,6 @@ import com.lucerion.launcher.ui.theme.TextoSuave
 @Composable
 fun HomeScreen(
     versionApp: String,
-    apodo: String?,
-    alAbrirCuenta: () -> Unit,
-    alAbrirAjustes: () -> Unit,
     alJugar: () -> Unit,
 ) {
     BoxWithConstraints(
@@ -66,9 +66,9 @@ fun HomeScreen(
             .background(Brush.verticalGradient(listOf(Bg2, Bg))),
     ) {
         if (maxWidth > maxHeight) {
-            HomeHorizontal(versionApp, apodo, alAbrirCuenta, alAbrirAjustes, alJugar)
+            HomeHorizontal(versionApp, alJugar)
         } else {
-            HomeVertical(versionApp, apodo, alAbrirCuenta, alAbrirAjustes, alJugar)
+            HomeVertical(versionApp, alJugar)
         }
     }
 }
@@ -76,7 +76,7 @@ fun HomeScreen(
 // ── Distribución vertical ────────────────────────────────────────────────────
 
 @Composable
-private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alAbrirAjustes: () -> Unit, alJugar: () -> Unit) {
+private fun HomeVertical(versionApp: String, alJugar: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,9 +89,9 @@ private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -
         SeparadorRemaches()
         Spacer(Modifier.height(28.dp))
         BloqueJugar(alJugar)
-        Spacer(Modifier.height(36.dp))
-        TarjetasSecciones(apodo, alAbrirCuenta, alAbrirAjustes)
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(24.dp))
+        BloqueSkinInicio(alturaVista = 300)
+        Spacer(Modifier.height(28.dp))
         PieVersion(versionApp)
     }
 }
@@ -99,7 +99,7 @@ private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -
 // ── Distribución horizontal ──────────────────────────────────────────────────
 
 @Composable
-private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alAbrirAjustes: () -> Unit, alJugar: () -> Unit) {
+private fun HomeHorizontal(versionApp: String, alJugar: () -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Panel de marca: fijo, sin scroll — es identidad, no contenido.
         Column(
@@ -135,8 +135,8 @@ private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: ()
             verticalArrangement = Arrangement.Center,
         ) {
             BloqueJugar(alJugar)
-            Spacer(Modifier.height(24.dp))
-            TarjetasSecciones(apodo, alAbrirCuenta, alAbrirAjustes)
+            Spacer(Modifier.height(18.dp))
+            BloqueSkinInicio(alturaVista = 240)
         }
     }
 }
@@ -174,25 +174,6 @@ private fun BloqueJugar(alJugar: () -> Unit) {
 }
 
 @Composable
-private fun TarjetasSecciones(apodo: String?, alAbrirCuenta: () -> Unit, alAbrirAjustes: () -> Unit) {
-    Column {
-        TarjetaSeccion(
-            titulo = stringResource(R.string.home_cuenta),
-            valorActual = apodo ?: stringResource(R.string.home_cuenta_sin),
-            explicacion = stringResource(R.string.home_cuenta_detalle),
-            alPulsar = alAbrirCuenta,
-        )
-        Spacer(Modifier.height(14.dp))
-        TarjetaSeccion(
-            titulo = stringResource(R.string.home_ajustes),
-            valorActual = null,
-            explicacion = stringResource(R.string.home_ajustes_detalle),
-            alPulsar = alAbrirAjustes,
-        )
-    }
-}
-
-@Composable
 private fun PieVersion(versionApp: String) {
     Text(
         text = stringResource(R.string.home_version, versionApp),
@@ -222,46 +203,6 @@ private fun BotonJugar(alPulsar: () -> Unit) {
             style = MaterialTheme.typography.labelLarge,
             color = Bg,
         )
-    }
-}
-
-/**
- * Tarjeta de sección: título, estado actual y SIEMPRE una explicación.
- * Es la materialización del principio "ninguna opción sin explicar".
- */
-@Composable
-private fun TarjetaSeccion(
-    titulo: String,
-    valorActual: String?,
-    explicacion: String,
-    alPulsar: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, OroProfundo.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-            .clickable(onClick = alPulsar),
-        color = Bg3,
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = titulo,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = OroClaro,
-                )
-                Spacer(Modifier.weight(1f))
-                valorActual?.let {
-                    Text(text = it, style = MaterialTheme.typography.bodyMedium, color = TextoSuave)
-                }
-            }
-            Text(
-                text = explicacion,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextoSuave,
-            )
-        }
     }
 }
 
