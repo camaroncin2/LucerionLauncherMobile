@@ -72,6 +72,14 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
         /** Cuanto hay que mantener el dedo quieto para que salga el panel. */
         private const val ESPERA_MANTENER = 300L
+
+        /**
+         * Controles que solo sirven con el juego "agarrado". Con un menu de
+         * Minecraft delante (inventario, pausa, un cofre, un aldeano) no hacen
+         * nada util y encima estorban justo encima de las casillas.
+         */
+        private val CONTROLES_DE_JUEGO =
+            setOf("movimiento", "salto", "golpear", "agacharse")
     }
 
     private var cursorAgarrado = false
@@ -423,6 +431,24 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         // Los controles recien creados quedarian sobre el engranaje y lo
         // taparian: el menu siempre manda en la capa de arriba.
         botonMenu?.bringToFront()
+        actualizarControlesSegunMenu()
+    }
+
+    /**
+     * Quita de en medio los controles de juego mientras haya un menu de
+     * Minecraft abierto, y los devuelve al cerrarlo.
+     *
+     * El aviso llega por el modo del cursor, que es la unica senal fiable que
+     * da el motor: cursor agarrado = estas jugando; cursor libre = hay una
+     * pantalla delante. En modo edicion no se ocultan, porque ahi justamente
+     * hay que verlos para colocarlos.
+     */
+    private fun actualizarControlesSegunMenu() {
+        val visibles = cursorAgarrado || modoEdicion
+        for ((c, vista) in controlesEnPantalla) {
+            if (c.id !in CONTROLES_DE_JUEGO) continue
+            vista.visibility = if (visibles) View.VISIBLE else View.GONE
+        }
     }
 
     // ── Engranaje flotante y menu del juego ──────────────────────────────────
@@ -662,6 +688,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         modoEdicion = true
         seleccionEdicion = null
         velosEdicion.clear()
+        // Si se entro a editar con un menu abierto, los controles de juego
+        // estaban ocultos: hay que devolverlos antes de crear los velos o se
+        // editarian capas sobre botones invisibles.
+        actualizarControlesSegunMenu()
         crearVelosEdicion()
         mostrarAccionesEdicion()
     }
@@ -1207,7 +1237,17 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             Surface(st),
             object : FCLBridgeCallback {
                 override fun onCursorModeChange(modo: Int) {
-                    runOnUiThread { cursorAgarrado = (modo == FCLBridge.CursorDisabled) }
+                    runOnUiThread {
+                        val agarrado = (modo == FCLBridge.CursorDisabled)
+                        if (cursorAgarrado == agarrado) return@runOnUiThread
+                        cursorAgarrado = agarrado
+                        // Al abrirse el menu hay que soltar lo que estuviera
+                        // pulsado: si no, el personaje se queda andando o
+                        // agachado mientras navegas el inventario, porque el
+                        // boton desaparece sin llegar a enviar su release.
+                        if (!agarrado) soltarTodo()
+                        actualizarControlesSegunMenu()
+                    }
                 }
 
                 override fun onLog(log: String?) = Unit // queda en latest_game.log
