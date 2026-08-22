@@ -69,6 +69,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         private const val VELO_NORMAL = 0x332E9BD6
         private const val VELO_ELEGIDO = 0x662E9BD6
         private const val CLAVE_AISLANTE = "__aislante__"
+
+        /** Cuanto hay que mantener el dedo quieto para que salga el panel. */
+        private const val ESPERA_MANTENER = 300L
     }
 
     private var cursorAgarrado = false
@@ -87,11 +90,32 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private val velosEdicion = mutableMapOf<String, View>()
     private var modoEdicion = false
     private var panelMenu: View? = null
-    private var barraEdicion: LinearLayout? = null
+    private var accionesEdicion: LinearLayout? = null
+    private var panelEdicion: View? = null
     private var tituloEdicion: android.widget.TextView? = null
     private var sliderEdicion: android.widget.SeekBar? = null
     private var sliderOpacidadEdicion: android.widget.SeekBar? = null
-    private var botonBorrarEdicion: android.widget.Button? = null
+    private var botonBorrarEdicion: View? = null
+
+    /** Distancia a partir de la cual un toque cuenta como arrastre. */
+    private val umbralArrastre by lazy {
+        android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+    }
+
+    /**
+     * Tamano con el que el juego dibuja cada fotograma. Se fija UNA vez y ya
+     * no se toca.
+     *
+     * Antes el buffer seguia al tamano de la vista: cualquier reajuste
+     * transitorio de la ventana (desplegar las notificaciones, una capa del
+     * sistema encima, volver de segundo plano) cambiaba la medida, se le
+     * pedia al juego que rehiciera su fotograma y, hasta que terminaba, el
+     * trozo de superficie sin cubrir se veia negro. Eso eran las franjas
+     * —verticales u horizontales segun por donde no llegara el fotograma—.
+     * Con el tamano fijo no hay hueco posible: TextureView escala.
+     */
+    private var anchoJuego = 0
+    private var altoJuego = 0
     private var seleccionEdicion: com.lucerion.launcher.data.ControlHud? = null
     private var botonMenu: View? = null
     private var observadorTeclado: android.view.ViewTreeObserver.OnGlobalLayoutListener? = null
@@ -478,35 +502,58 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     }
 
     private fun cerrarMenu() {
-        panelMenu?.let { raiz.removeView(it) }
+        val capa = panelMenu ?: return
         panelMenu = null
+        // Se va como vino: si desaparece de golpe parece un parpadeo.
+        capa.animate().alpha(0f).setDuration(110)
+            .withEndAction { raiz.removeView(capa) }
+            .start()
     }
 
-    /** Panel semitransparente con las acciones disponibles en partida. */
+    /** Fondo redondeado reutilizable para los paneles sobre la partida. */
+    private fun fondoRedondeado(
+        color: Int,
+        radio: Int,
+        borde: Int = 0,
+    ): android.graphics.drawable.GradientDrawable =
+        android.graphics.drawable.GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radio).toFloat()
+            if (borde != 0) setStroke(maxOf(1, dp(1)), borde)
+        }
+
+    /**
+     * Menu de partida: tarjeta compacta y translucida en el centro.
+     *
+     * Antes era una lista alta de tarjetas casi opacas metida en un
+     * ScrollView, que tapaba media pantalla y aparecia de golpe. Ahora entra
+     * con un fundido corto, deja ver la partida por detras y se cierra
+     * tocando fuera —que es lo que uno intenta primero—.
+     */
     private fun abrirMenu() {
         if (modoEdicion) return
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xE60C1424.toInt()) // navy translucido
-            setPadding(dp(18), dp(14), dp(18), dp(16))
-            // Sin esto los toques ATRAVESABAN el panel hasta el juego: tocar el
-            // título del menú colocaba bloques o te comía la comida.
+
+        // Velo a pantalla completa: ademas de cerrar al tocar fuera, impide
+        // que los toques del menu lleguen al juego y coloquen bloques.
+        val capa = FrameLayout(this).apply {
+            setBackgroundColor(0x4D000000)
             isClickable = true
             isFocusable = true
+            setOnClickListener { cerrarMenu() }
+        }
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = fondoRedondeado(0xBF0B1220.toInt(), 18, 0x4DE8C06A)
+            setPadding(dp(16), dp(13), dp(16), dp(13))
+            isClickable = true // los toques del panel no cierran el menu
         }
         panel.addView(
             android.widget.TextView(this).apply {
                 text = "Menú de Lucerion"
                 setTextColor(0xFFE8C06A.toInt())
-                textSize = 16f
-            },
-        )
-        panel.addView(
-            android.widget.TextView(this).apply {
-                text = "La partida sigue corriendo detrás."
-                setTextColor(0xB3C8D0E0.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, dp(10))
+                textSize = 14f
+                setPadding(0, 0, 0, dp(9))
             },
         )
 
@@ -514,31 +561,33 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             panel.addView(
                 LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(dp(10), dp(9), dp(10), dp(9))
-                    setBackgroundColor(0x80111C31.toInt())
+                    background = fondoRedondeado(0x59172A44, 12)
+                    setPadding(dp(11), dp(8), dp(11), dp(8))
+                    minimumHeight = dp(48) // objetivo tactil accesible
+                    gravity = Gravity.CENTER_VERTICAL
                     isClickable = true
                     setOnClickListener { alPulsar() }
                     addView(
                         android.widget.TextView(context).apply {
                             text = titulo
                             setTextColor(0xFFE8C06A.toInt())
-                            textSize = 14f
+                            textSize = 13f
                         },
                     )
                     addView(
                         android.widget.TextView(context).apply {
                             text = detalle
-                            setTextColor(0xB3C8D0E0.toInt())
-                            textSize = 11f
+                            setTextColor(0x99C8D0E0.toInt())
+                            textSize = 10f
                         },
                     )
                 },
-                LinearLayout.LayoutParams(dp(250), LinearLayout.LayoutParams.WRAP_CONTENT)
-                    .apply { bottomMargin = dp(8) },
+                LinearLayout.LayoutParams(dp(258), LinearLayout.LayoutParams.WRAP_CONTENT)
+                    .apply { bottomMargin = dp(6) },
             )
         }
 
-        opcion("Editar controles aquí mismo", "Mueve y redimensiona los botones sobre la partida.") {
+        opcion("Editar controles aquí mismo", "Mantén pulsado un botón para ajustarlo.") {
             cerrarMenu()
             entrarModoEdicion()
         }
@@ -556,28 +605,48 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             cerrarMenu()
             abrirTeclado()
         }
-        opcion("Cerrar el menú", "Vuelve a la partida.") { cerrarMenu() }
 
-        // Envuelto en un contenedor desplazable: con letra grande del
-        // sistema el panel medía más que la pantalla y el primero en caerse
-        // era justo "Cerrar el menú", dejándolo sin salida visible.
-        val contenedor = android.widget.ScrollView(this).apply {
-            isFillViewport = false
-            addView(panel)
-            isClickable = true
-        }
-        raiz.addView(
-            contenedor,
+        // Cierre en una sola linea: con el velo detras ya se puede cerrar
+        // tocando fuera, asi que aqui sobra la explicacion.
+        panel.addView(
+            android.widget.TextView(this).apply {
+                text = "Volver a la partida"
+                setTextColor(0x99C8D0E0.toInt())
+                textSize = 12f
+                gravity = Gravity.CENTER
+                minimumHeight = dp(44)
+                setPadding(0, dp(12), 0, 0)
+                isClickable = true
+                setOnClickListener { cerrarMenu() }
+            },
+            LinearLayout.LayoutParams(dp(258), LinearLayout.LayoutParams.WRAP_CONTENT),
+        )
+
+        capa.addView(
+            panel,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER,
-            ).apply {
-                topMargin = dp(8)
-                bottomMargin = dp(8)
-            },
+            ),
         )
-        panelMenu = contenedor
+        raiz.addView(
+            capa,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        panelMenu = capa
+
+        // Entrada breve: aparece creciendo un poco, no de golpe.
+        capa.alpha = 0f
+        panel.scaleX = 0.94f
+        panel.scaleY = 0.94f
+        capa.animate().alpha(1f).setDuration(140).start()
+        panel.animate().scaleX(1f).scaleY(1f).setDuration(160)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
     }
 
     // ── Edicion del HUD sobre la partida ─────────────────────────────────────
@@ -594,7 +663,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         seleccionEdicion = null
         velosEdicion.clear()
         crearVelosEdicion()
-        mostrarBarraEdicion()
+        mostrarAccionesEdicion()
     }
 
     /** Capa arrastrable sobre cada control (y lo desconecta del juego). */
@@ -607,6 +676,9 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             setBackgroundColor(0x14000000)
             isClickable = true
             isFocusable = true
+            // Tocar el fondo cierra el panel de ajuste: asi el centro queda
+            // libre para colocar controles ahi mismo.
+            setOnClickListener { ocultarPanelEdicion() }
         }
         raiz.addView(
             aislante,
@@ -636,24 +708,54 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
             var dX = 0f
             var dY = 0f
+            var xInicio = 0f
+            var yInicio = 0f
+            var arrastrando = false
+            // El panel de ajuste sale SOLO si mantienes el dedo quieto sobre
+            // el control: ni al tocarlo ni al arrastrarlo. Asi deja de estorbar
+            // justo donde estas colocando algo.
+            val alMantener = Runnable { mostrarPanelEdicion(c) }
             velo.setOnTouchListener { v, e ->
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         seleccionarEnEdicion(c)
                         dX = e.rawX - v.x
                         dY = e.rawY - v.y
+                        xInicio = e.rawX
+                        yInicio = e.rawY
+                        arrastrando = false
+                        v.postDelayed(alMantener, ESPERA_MANTENER)
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val nx = (e.rawX - dX).coerceIn(0f, maxOf(0f, (raiz.width - v.width).toFloat()))
-                        val ny = (e.rawY - dY).coerceIn(0f, maxOf(0f, (raiz.height - v.height).toFloat()))
-                        v.x = nx
-                        v.y = ny
-                        vista.x = nx
-                        vista.y = ny
+                        if (!arrastrando &&
+                            kotlin.math.hypot(e.rawX - xInicio, e.rawY - yInicio) > umbralArrastre
+                        ) {
+                            arrastrando = true
+                            v.removeCallbacks(alMantener)
+                            ocultarPanelEdicion()
+                            accionesEdicion?.animate()?.alpha(0f)?.setDuration(90)?.start()
+                            // Reagarrar aqui: si se conserva el offset del
+                            // toque inicial, el control pega un salto del
+                            // tamano del umbral al empezar a moverse.
+                            dX = e.rawX - v.x
+                            dY = e.rawY - v.y
+                        }
+                        if (arrastrando) {
+                            val nx = (e.rawX - dX).coerceIn(0f, maxOf(0f, (raiz.width - v.width).toFloat()))
+                            val ny = (e.rawY - dY).coerceIn(0f, maxOf(0f, (raiz.height - v.height).toFloat()))
+                            v.x = nx
+                            v.y = ny
+                            vista.x = nx
+                            vista.y = ny
+                        }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        c.x = (v.x + v.width / 2f) / raiz.width
-                        c.y = (v.y + v.height / 2f) / raiz.height
+                        v.removeCallbacks(alMantener)
+                        if (arrastrando) {
+                            c.x = (v.x + v.width / 2f) / raiz.width
+                            c.y = (v.y + v.height / 2f) / raiz.height
+                            accionesEdicion?.animate()?.alpha(1f)?.setDuration(120)?.start()
+                        }
                     }
                 }
                 true
@@ -669,35 +771,118 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     private fun seleccionarEnEdicion(c: com.lucerion.launcher.data.ControlHud) {
         seleccionEdicion = c
-        actualizarTituloEdicion(c)
-        sliderEdicion?.progress = c.tam - 36
-        sliderOpacidadEdicion?.progress = ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85)
-        botonBorrarEdicion?.visibility = if (c.tipo == "tecla") View.VISIBLE else View.INVISIBLE
         for ((id, velo) in velosEdicion) {
             velo.setBackgroundColor(if (id == c.id) VELO_ELEGIDO else VELO_NORMAL)
         }
+        // Si el panel ya estaba abierto, pasa a mandar sobre el nuevo control
+        // en vez de quedarse mostrando los datos del anterior.
+        if (panelEdicion != null) mostrarPanelEdicion(c)
     }
 
-    private fun mostrarBarraEdicion() {
-        // Barra HORIZONTAL y compacta: en apaisado la versión apilada medía
-        // más que la pantalla y los botones quedaban fuera.
-        val barra = LinearLayout(this).apply {
+    /**
+     * Fila de acciones del modo edicion: minima y arriba del todo.
+     *
+     * Antes toda la edicion vivia en una barra fija abajo, con titulo, dos
+     * deslizadores y cuatro botones. Ocupaba un cuarto de la pantalla y, peor,
+     * hacia imposible dejar un control debajo de ella. Aqui solo queda lo que
+     * de verdad tiene que estar siempre a mano.
+     */
+    private fun mostrarAccionesEdicion() {
+        val fila = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(0xF00C1424.toInt())
-            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = fondoRedondeado(0xB00B1220.toInt(), 14, 0x3DE8C06A)
             gravity = Gravity.CENTER_VERTICAL
         }
+        fun chip(texto: String, alPulsar: () -> Unit) = android.widget.TextView(this).apply {
+            text = texto
+            textSize = 11f
+            setTextColor(0xFFE8C06A.toInt())
+            gravity = Gravity.CENTER
+            minimumHeight = dp(44) // objetivo tactil accesible
+            minWidth = dp(72)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { alPulsar() }
+        }
+        fila.addView(chip("+ BOTÓN") { dialogoNuevoBotonEnJuego() })
+        fila.addView(chip("GUARDAR") { salirModoEdicion(guardar = true) })
+        fila.addView(chip("DESCARTAR") { salirModoEdicion(guardar = false) })
 
-        val columnaSliders = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val columna = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        columna.addView(fila)
+
+        // Pista de uso: el panel ya no esta a la vista, asi que hay que decir
+        // como se abre. Se desvanece sola para no seguir estorbando.
+        val pista = android.widget.TextView(this).apply {
+            text = "Arrastra para mover · mantén pulsado para ajustar"
+            textSize = 10f
+            setTextColor(0x99C8D0E0.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, 0)
+        }
+        columna.addView(pista)
+        pista.animate().alpha(0f).setStartDelay(4200).setDuration(600).start()
+
+        raiz.addView(
+            columna,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+            ).apply { topMargin = dp(6) },
+        )
+        accionesEdicion = columna
+    }
+
+    private fun ocultarPanelEdicion() {
+        val panel = panelEdicion ?: return
+        panelEdicion = null
+        tituloEdicion = null
+        sliderEdicion = null
+        sliderOpacidadEdicion = null
+        botonBorrarEdicion = null
+        panel.animate().alpha(0f).setDuration(90)
+            .withEndAction { raiz.removeView(panel) }
+            .start()
+    }
+
+    /**
+     * Ajuste fino del control elegido: aparece al MANTENER pulsado, va en el
+     * centro y se cierra tocando fuera. Solo lo imprescindible —tamano,
+     * opacidad y borrar— porque cada cosa de mas es pantalla que tapa.
+     */
+    private fun mostrarPanelEdicion(c: com.lucerion.launcher.data.ControlHud) {
+        val previo = panelEdicion
+        if (previo != null) {
+            panelEdicion = null
+            raiz.removeView(previo)
+        }
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = fondoRedondeado(0xBF0B1220.toInt(), 16, 0x4DE8C06A)
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            isClickable = true
+        }
+
         val titulo = android.widget.TextView(this).apply {
-            text = "Toca un control para editarlo; arrástralo para moverlo."
             setTextColor(0xFFE8C06A.toInt())
             textSize = 12f
+            setPadding(0, 0, 0, dp(4))
         }
-        columnaSliders.addView(titulo)
+        panel.addView(titulo)
         tituloEdicion = titulo
 
-        fun filaSlider(etiqueta: String, maximo: Int, alCambiar: (Int) -> Unit): android.widget.SeekBar {
+        fun filaSlider(
+            etiqueta: String,
+            maximo: Int,
+            valor: Int,
+            alCambiar: (Int) -> Unit,
+        ): android.widget.SeekBar {
             val fila = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -705,88 +890,94 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
             fila.addView(
                 android.widget.TextView(this).apply {
                     text = etiqueta
-                    setTextColor(0xB3C8D0E0.toInt())
-                    textSize = 11f
-                    width = dp(64)
+                    setTextColor(0x99C8D0E0.toInt())
+                    textSize = 10f
+                    width = dp(58)
                 },
             )
             val sb = android.widget.SeekBar(this).apply {
                 max = maximo
+                progress = valor
                 setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(s: android.widget.SeekBar?, progreso: Int, delUsuario: Boolean) {
+                    override fun onProgressChanged(
+                        s: android.widget.SeekBar?,
+                        progreso: Int,
+                        delUsuario: Boolean,
+                    ) {
                         if (delUsuario) alCambiar(progreso)
                     }
                     override fun onStartTrackingTouch(s: android.widget.SeekBar?) = Unit
                     override fun onStopTrackingTouch(s: android.widget.SeekBar?) = Unit
                 })
             }
-            fila.addView(sb, LinearLayout.LayoutParams(dp(180), LinearLayout.LayoutParams.WRAP_CONTENT))
-            columnaSliders.addView(fila)
+            fila.addView(sb, LinearLayout.LayoutParams(dp(150), LinearLayout.LayoutParams.WRAP_CONTENT))
+            panel.addView(fila)
             return sb
         }
 
-        sliderEdicion = filaSlider("Tamaño", 184) { progreso ->
-            val c = seleccionEdicion ?: return@filaSlider
+        sliderEdicion = filaSlider("Tamaño", 184, c.tam - 36) { progreso ->
             c.tam = progreso + 36
             actualizarTituloEdicion(c)
             redimensionarEnEdicion(c)
         }
-        sliderOpacidadEdicion = filaSlider("Opacidad", 85) { progreso ->
-            val c = seleccionEdicion ?: return@filaSlider
+        sliderOpacidadEdicion = filaSlider(
+            "Opacidad", 85, ((c.opacidad * 100).toInt() - 15).coerceIn(0, 85),
+        ) { progreso ->
             c.opacidad = (progreso + 15) / 100f
             actualizarTituloEdicion(c)
             controlesEnPantalla.firstOrNull { it.first === c }?.second?.alpha = c.opacidad
         }
-        barra.addView(columnaSliders)
 
-        // Botones en dos filas cortas: caben sin partir palabras.
-        val columnaBotones = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), 0, 0, 0)
+        val pie = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(4), 0, 0)
         }
-        fun boton(texto: String, alPulsar: () -> Unit): android.widget.Button =
-            android.widget.Button(this).apply {
-                this.text = texto
-                textSize = 10f
-                minWidth = dp(96)
-                minimumWidth = dp(96)
-                setPadding(dp(6), 0, dp(6), 0)
+        fun chip(texto: String, color: Int, alPulsar: () -> Unit) =
+            android.widget.TextView(this).apply {
+                text = texto
+                textSize = 11f
+                setTextColor(color)
+                gravity = Gravity.CENTER
+                minimumHeight = dp(40)
+                minWidth = dp(78)
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                isClickable = true
+                isFocusable = true
                 setOnClickListener { alPulsar() }
             }
-
-        val filaArriba = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        filaArriba.addView(boton("+ BOTÓN") { dialogoNuevoBotonEnJuego() })
-        val borrar = boton("BORRAR") {
-            val c = seleccionEdicion ?: return@boton
-            if (c.tipo != "tecla") return@boton
-            diseno.controles.remove(c)
-            seleccionEdicion = null
-            // Devolver el panel a "nada seleccionado": el título seguía
-            // nombrando un control borrado y los deslizadores quedaban mudos.
-            tituloEdicion?.text = "Toca un control para editarlo; arrástralo para moverlo."
-            botonBorrarEdicion?.visibility = View.INVISIBLE
-            rehacerEdicion()
-        }.apply { visibility = View.INVISIBLE } // reserva su hueco: la barra no salta
-        filaArriba.addView(borrar)
-        botonBorrarEdicion = borrar
-        columnaBotones.addView(filaArriba)
-
-        val filaAbajo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        filaAbajo.addView(boton("GUARDAR") { salirModoEdicion(guardar = true) })
-        filaAbajo.addView(boton("DESCARTAR") { salirModoEdicion(guardar = false) })
-        columnaBotones.addView(filaAbajo)
-
-        barra.addView(columnaBotones)
+        // Borrar solo tiene sentido en los botones que anadio el jugador: los
+        // controles de serie no se pueden quitar.
+        if (c.tipo == "tecla") {
+            val borrar = chip("BORRAR", 0xFFE08A7A.toInt()) {
+                diseno.controles.remove(c)
+                seleccionEdicion = null
+                ocultarPanelEdicion()
+                rehacerEdicion()
+            }
+            pie.addView(borrar)
+            botonBorrarEdicion = borrar
+        }
+        pie.addView(chip("LISTO", 0xFFE8C06A.toInt()) { ocultarPanelEdicion() })
+        panel.addView(pie)
 
         raiz.addView(
-            barra,
+            panel,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
-            ).apply { bottomMargin = dp(10) },
+                Gravity.CENTER,
+            ),
         )
-        barraEdicion = barra
+        panelEdicion = panel
+        actualizarTituloEdicion(c)
+
+        panel.alpha = 0f
+        panel.scaleX = 0.94f
+        panel.scaleY = 0.94f
+        panel.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(130)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
     }
 
     private fun actualizarTituloEdicion(c: com.lucerion.launcher.data.ControlHud) {
@@ -845,9 +1036,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         velosEdicion.clear()
         construirHud()
         crearVelosEdicion()
-        botonBorrarEdicion?.visibility =
-            if (seleccionEdicion?.tipo == "tecla") View.VISIBLE else View.INVISIBLE
-        barraEdicion?.bringToFront()
+        // Los velos se recrean encima, asi que las capas de edicion tienen
+        // que volver al frente o quedan enterradas y dejan de responder.
+        accionesEdicion?.bringToFront()
+        panelEdicion?.bringToFront()
     }
 
     /** Redimensiona en vivo el control elegido (y su capa) manteniendo el centro. */
@@ -882,8 +1074,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         modoEdicion = false
         velosEdicion.values.forEach { raiz.removeView(it) }
         velosEdicion.clear()
-        barraEdicion?.let { raiz.removeView(it) }
-        barraEdicion = null
+        accionesEdicion?.let { raiz.removeView(it) }
+        accionesEdicion = null
+        panelEdicion?.let { raiz.removeView(it) }
+        panelEdicion = null
         tituloEdicion = null
         sliderEdicion = null
         sliderOpacidadEdicion = null
@@ -994,16 +1188,20 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     private fun arrancarJuego(st: SurfaceTexture, p: FCLBridge, ancho: Int, alto: Int) {
         if (enEjecucion) {
-            // El juego ya corre: solo re-adjuntar la ventana nueva.
-            st.setDefaultBufferSize(ancho, alto)
+            // El juego ya corre: solo re-adjuntar la ventana nueva, SIEMPRE al
+            // tamano de render original (no al de la vista, que puede venir
+            // alterado por una capa del sistema).
+            st.setDefaultBufferSize(anchoJuego, altoJuego)
             p.setSurfaceDestroyed(false)
             p.setSurfaceTexture(st)
             org.lwjgl.glfw.CallbackBridge.setupBridgeWindow(Surface(st))
             return
         }
         enEjecucion = true
+        anchoJuego = ancho
+        altoJuego = alto
         fijarResolucion(ancho, alto)
-        st.setDefaultBufferSize(ancho, alto)
+        st.setDefaultBufferSize(anchoJuego, altoJuego)
         p.setSurfaceDestroyed(false)
         p.execute(
             Surface(st),
@@ -1038,7 +1236,31 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     }
 
     override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, ancho: Int, alto: Int) {
-        puente?.pushEventWindow(ancho, alto)
+        // A PROPOSITO no se avisa al juego del nuevo tamano. La ventana cambia
+        // de medida por motivos pasajeros —barra de notificaciones, capas del
+        // sistema, teclado— y cada aviso obligaba al juego a rehacer su
+        // fotograma; durante ese rato la parte no cubierta se veia negra. Se
+        // vuelve a fijar el buffer al tamano de render y TextureView escala.
+        if (anchoJuego > 0 && altoJuego > 0) {
+            st.setDefaultBufferSize(anchoJuego, altoJuego)
+        } else {
+            puente?.pushEventWindow(ancho, alto)
+        }
+    }
+
+    /**
+     * Al recuperar el foco (cerrar las notificaciones, volver de otra app) el
+     * sistema deja sus barras visibles: si no se vuelven a esconder, la
+     * ventana queda con otra medida y reaparecen las franjas.
+     */
+    override fun onWindowFocusChanged(tieneFoco: Boolean) {
+        super.onWindowFocusChanged(tieneFoco)
+        if (!tieneFoco) return
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
     }
 
     override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
