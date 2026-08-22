@@ -71,16 +71,19 @@ Write-Host "Partida encontrada (proceso $pid_juego)" -ForegroundColor Green
 # ── capa del juego, para leer fotogramas REALES del compositor ──────────────
 # El contador de la pantalla es del propio juego; estos tiempos son los que
 # el sistema presento de verdad, que es lo que ve el jugador.
+# El nombre tiene que ir COMPLETO, con el paquete delante:
+#   com.lucerion.launcher/com.lucerion.launcher.ui.juego.JuegoActivity#4166
+# Capturar solo "JuegoActivity#4166" hacia que --latency no reconociera la capa
+# y devolviera vacio en cada muestra, sin decir por que.
 $capa = ""
 $listado = Sh "dumpsys SurfaceFlinger --list"
 foreach ($l in ($listado -split "`n")) {
-    if ($l -match "JuegoActivity#\d+") { $capa = $Matches[0]; }
+    if ($l -match "[A-Za-z0-9_.]+/[A-Za-z0-9_.]*JuegoActivity#\d+") { $capa = $Matches[0] }
 }
 if ($capa) {
-    Write-Host "Midiendo fotogramas del compositor: $capa" -ForegroundColor Green
+    Write-Host "Capa del juego: $capa" -ForegroundColor Green
 } else {
-    Write-Host "No encontre la capa del juego; los FPS quedaran vacios." -ForegroundColor Yellow
-    Write-Host "(el resto de medidas si se registran)"
+    Write-Host "No encontre la capa del juego; probare con el otro metodo." -ForegroundColor Yellow
 }
 
 # ── sonda ───────────────────────────────────────────────────────────────────
@@ -115,8 +118,13 @@ for c in /sys/class/thermal/cooling_device*; do
     gpu) cdg=$(cat $c/cur_state) ;;
   esac
 done
-st=$(dumpsys thermalservice | grep -m1 'Thermal Status' | tr -dc '0-9')
-bat=$(dumpsys battery | grep -m1 temperature | tr -dc '0-9')
+# Se vuelca a una variable ANTES de filtrar: con "dumpsys | grep -m1", grep
+# cierra la tuberia en cuanto encuentra la linea y dumpsys sigue escribiendo,
+# lo que llenaba la consola de "Broken pipe" en cada muestra.
+volcado_t=$(dumpsys thermalservice 2>/dev/null)
+st=$(echo "$volcado_t" | grep -m1 'Thermal Status' | tr -dc '0-9')
+volcado_b=$(dumpsys battery 2>/dev/null)
+bat=$(echo "$volcado_b" | grep -m1 temperature | tr -dc '0-9')
 ma=$(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
 rss=$(grep VmRSS /proc/$1/status 2>/dev/null | tr -dc '0-9')
 swp=$(grep VmSwap /proc/$1/status 2>/dev/null | tr -dc '0-9')
@@ -142,21 +150,59 @@ if (($ensayo -split ";").Count -lt 13) {
 }
 Write-Host "Sonda verificada" -ForegroundColor Green
 
-function LeerFps {
-    if (-not $capa) { return "" }
+# Los FPS se leen de fotogramas REALMENTE presentados, no del contador que
+# dibuja el juego: ese dice lo que el juego cree que hizo, no lo que llego a la
+# pantalla.
+#
+# Se intentan dos vias porque ninguna esta garantizada en todas las versiones
+# de Android: primero los tiempos del compositor y, si no da nada, las
+# estadisticas de fotograma de la interfaz del proceso del juego.
+function FpsPorCompositor {
+    if (-not $capa) { return $null }
     $salida = Sh "dumpsys SurfaceFlinger --latency '$capa'"
-    $filas = @()
+    $marcas = @()
     foreach ($l in ($salida -split "`n")) {
-        $p = $l.Trim() -split "\s+"
-        if ($p.Count -eq 3) {
-            $t = 0L
-            if ([int64]::TryParse($p[1], [ref]$t) -and $t -gt 0 -and $t -lt 9223372036854775807) { $filas += $t }
+        $c = $l.Trim() -split "\s+"
+        if ($c.Count -eq 3) {
+            $t = [int64]0
+            # El compositor rellena con el maximo de int64 los fotogramas que
+            # todavia no presento: contarlos inventaria FPS.
+            if ([int64]::TryParse($c[1], [ref]$t) -and $t -gt 0 -and $t -lt 9000000000000000000) {
+                $marcas += $t
+            }
         }
     }
-    if ($filas.Count -lt 10) { return "" }
-    $span = ($filas[-1] - $filas[0]) / 1e9
-    if ($span -le 0) { return "" }
-    return [math]::Round(($filas.Count - 1) / $span, 1)
+    if ($marcas.Count -lt 10) { return $null }
+    $span = ($marcas[-1] - $marcas[0]) / 1e9
+    if ($span -le 0) { return $null }
+    return [math]::Round(($marcas.Count - 1) / $span, 1)
+}
+
+function FpsPorFramestats {
+    $salida = Sh "dumpsys gfxinfo com.lucerion.launcher:juego framestats"
+    $marcas = @()
+    $dentro = $false
+    foreach ($l in ($salida -split "`n")) {
+        $t = $l.Trim()
+        if ($t -like "*PROFILEDATA*") { $dentro = -not $dentro; continue }
+        if (-not $dentro) { continue }
+        $c = $t -split ","
+        if ($c.Count -lt 10) { continue }
+        $v = [int64]0
+        if ([int64]::TryParse($c[1], [ref]$v) -and $v -gt 0) { $marcas += $v }
+    }
+    if ($marcas.Count -lt 10) { return $null }
+    $marcas = $marcas | Sort-Object
+    $span = ($marcas[-1] - $marcas[0]) / 1e9
+    if ($span -le 0) { return $null }
+    return [math]::Round(($marcas.Count - 1) / $span, 1)
+}
+
+function LeerFps {
+    $v = FpsPorCompositor
+    if ($v -eq $null) { $v = FpsPorFramestats }
+    if ($v -eq $null) { return "" }
+    return $v
 }
 
 # ── medicion ────────────────────────────────────────────────────────────────
@@ -215,9 +261,9 @@ $primero = $muestras[0..($tercio - 1)]
 $ultimo = $muestras[($n - $tercio)..($n - 1)]
 
 Write-Host ""
-Write-Host "──────────────────────────────────────────────" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host " $Etiqueta" -ForegroundColor Cyan
-Write-Host "──────────────────────────────────────────────" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
 $fA = Med ($primero.fps); $fB = Med ($ultimo.fps)
 if ($fA -ne $null -and $fB -ne $null) {
     $caida = [math]::Round((1 - ($fB / $fA)) * 100, 1)
