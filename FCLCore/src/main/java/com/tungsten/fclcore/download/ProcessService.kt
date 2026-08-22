@@ -41,9 +41,15 @@ class ProcessService : Service() {
         val command = intent.extras!!.getStringArray("command")
         val java = intent.extras!!.getInt("java")
         val jre = "jre$java"
+        // Log en el almacenamiento de la app: /sdcard/FCL/log exige el permiso
+        // "todos los archivos" (Lucerion no lo pide) y la escritura fallida
+        // dejaba el instalador sin rastro alguno.
+        val logDir = (applicationContext.getExternalFilesDir(null)
+            ?: applicationContext.filesDir).absolutePath + "/log"
+        File(logDir).mkdirs()
         val config = FCLConfig(
             applicationContext,
-            Environment.getExternalStorageDirectory().absolutePath + "/FCL/log",
+            logDir,
             applicationContext.getDir("runtime", 0).absolutePath + "/java/" + jre,
             applicationContext.cacheDir.toString() + "/fclauncher",
             Renderer(

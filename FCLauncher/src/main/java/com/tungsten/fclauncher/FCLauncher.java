@@ -535,8 +535,13 @@ public class FCLauncher {
 
                 // launch api installer
                 launch(config, bridge, "API Installer");
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Throwable e) {
+                // Si el hilo muere sin reportar, quien espera el codigo de
+                // salida (ProcessService -> SocketServer) queda colgado para
+                // siempre: avisar y desbloquear con codigo de error.
+                android.util.Log.e("FCLauncher", "API installer thread failed", e);
+                log(bridge, "API installer failed: " + e);
+                bridge.onExit(1);
             }
         });
 
