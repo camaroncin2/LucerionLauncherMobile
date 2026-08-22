@@ -52,8 +52,14 @@ funciona sin descargas extra más allá del modpack.
   pedirá permitir la instalación desde el navegador. Es un permiso por app y
   se puede revocar después.
 - La primera entrada descarga el modpack y el juego (~1 GB): conviene wifi.
-- Necesita ~4 GB de RAM libres para jugar con soltura; en Ajustes →
-  Rendimiento la app indica la memoria recomendada de su equipo.
+- Necesita ~3 GB de RAM libres para jugar con soltura; en Ajustes →
+  Rendimiento la app indica la memoria recomendada de su equipo y no conviene
+  subirla: medido en un Edge 40 Pro (11.5 GB), reservar el 40 % daba 5.8 GB
+  residentes y Android cerraba la partida al abrir cualquier otra app pesada,
+  mientras que con el 22 % rinde igual (43 FPS, media 44) y sobrevive.
+- La partida corre en su propia ventana, separada del launcher: aparecen dos
+  entradas en la lista de recientes. Cerrar el launcher no la afecta; al
+  minimizarla se queda viva y va devolviendo memoria al sistema.
 
 ## Alternativa descartada (por ahora)
 
