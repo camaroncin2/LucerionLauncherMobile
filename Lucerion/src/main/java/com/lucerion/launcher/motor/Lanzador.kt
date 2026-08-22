@@ -103,11 +103,13 @@ object Lanzador {
             // de cualquier Os.setenv (por eso nunca surtio efecto, ni en la
             // Fase 0 con FCL). El unico canal que gana es el env personalizado
             // (prefs "launcher"/"env"), que se aplica al final.
-            // FIFO en el WSI de Mesa: fuerza presentacion sincronizada al
-            // vblank en la capa Vulkan (Turnip) — remata las franjas que el
-            // vsync de GL redujo pero no elimino.
+            // Variables de entorno derivadas de Ajustes (vsync, presentacion
+            // Vulkan, interruptores de Turnip). Van por prefs "launcher"/"env"
+            // porque es el UNICO canal que addCommonEnv no pisa.
             actividad.getSharedPreferences("launcher", Context.MODE_PRIVATE)
-                .edit().putString("env", "FORCE_VSYNC=true\nMESA_VK_WSI_PRESENT_MODE=fifo").apply()
+                .edit()
+                .putString("env", com.lucerion.launcher.data.RepositorioAjustes.construirEnv(actividad))
+                .apply()
 
             val repo = InstaladorJuego.repositorio(dirInstancia)
             val version = MaintainTask.maintain(
@@ -120,7 +122,9 @@ object Lanzador {
             ).create(apodo, OfflineAccountFactory.getUUIDFromUserName(apodo))
             val credenciales = cuenta.playOffline()
 
-            val memoria = memoriaMb(actividad)
+            // Memoria: la de Ajustes si el jugador fijo una; si no, automatica.
+            val memoria = com.lucerion.launcher.data.RepositorioAjustes.memoriaMb(actividad)
+                .takeIf { it > 0 } ?: memoriaMb(actividad)
             val metrics = actividad.resources.displayMetrics
             val ancho = maxOf(metrics.widthPixels, metrics.heightPixels)
             val alto = minOf(metrics.widthPixels, metrics.heightPixels)

@@ -57,6 +57,7 @@ fun HomeScreen(
     versionApp: String,
     apodo: String?,
     alAbrirCuenta: () -> Unit,
+    alAbrirAjustes: () -> Unit,
     alJugar: () -> Unit,
 ) {
     BoxWithConstraints(
@@ -65,9 +66,9 @@ fun HomeScreen(
             .background(Brush.verticalGradient(listOf(Bg2, Bg))),
     ) {
         if (maxWidth > maxHeight) {
-            HomeHorizontal(versionApp, apodo, alAbrirCuenta, alJugar)
+            HomeHorizontal(versionApp, apodo, alAbrirCuenta, alAbrirAjustes, alJugar)
         } else {
-            HomeVertical(versionApp, apodo, alAbrirCuenta, alJugar)
+            HomeVertical(versionApp, apodo, alAbrirCuenta, alAbrirAjustes, alJugar)
         }
     }
 }
@@ -75,7 +76,7 @@ fun HomeScreen(
 // ── Distribución vertical ────────────────────────────────────────────────────
 
 @Composable
-private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alJugar: () -> Unit) {
+private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alAbrirAjustes: () -> Unit, alJugar: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,7 +90,7 @@ private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -
         Spacer(Modifier.height(28.dp))
         BloqueJugar(alJugar)
         Spacer(Modifier.height(36.dp))
-        TarjetasSecciones(apodo, alAbrirCuenta)
+        TarjetasSecciones(apodo, alAbrirCuenta, alAbrirAjustes)
         Spacer(Modifier.height(40.dp))
         PieVersion(versionApp)
     }
@@ -98,7 +99,7 @@ private fun HomeVertical(versionApp: String, apodo: String?, alAbrirCuenta: () -
 // ── Distribución horizontal ──────────────────────────────────────────────────
 
 @Composable
-private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alJugar: () -> Unit) {
+private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: () -> Unit, alAbrirAjustes: () -> Unit, alJugar: () -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Panel de marca: fijo, sin scroll — es identidad, no contenido.
         Column(
@@ -135,7 +136,7 @@ private fun HomeHorizontal(versionApp: String, apodo: String?, alAbrirCuenta: ()
         ) {
             BloqueJugar(alJugar)
             Spacer(Modifier.height(24.dp))
-            TarjetasSecciones(apodo, alAbrirCuenta)
+            TarjetasSecciones(apodo, alAbrirCuenta, alAbrirAjustes)
         }
     }
 }
@@ -173,7 +174,7 @@ private fun BloqueJugar(alJugar: () -> Unit) {
 }
 
 @Composable
-private fun TarjetasSecciones(apodo: String?, alAbrirCuenta: () -> Unit) {
+private fun TarjetasSecciones(apodo: String?, alAbrirCuenta: () -> Unit, alAbrirAjustes: () -> Unit) {
     Column {
         TarjetaSeccion(
             titulo = stringResource(R.string.home_cuenta),
@@ -186,7 +187,7 @@ private fun TarjetasSecciones(apodo: String?, alAbrirCuenta: () -> Unit) {
             titulo = stringResource(R.string.home_ajustes),
             valorActual = null,
             explicacion = stringResource(R.string.home_ajustes_detalle),
-            alPulsar = { /* fase siguiente: pantalla de ajustes */ },
+            alPulsar = alAbrirAjustes,
         )
     }
 }

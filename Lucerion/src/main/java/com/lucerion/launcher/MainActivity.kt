@@ -16,7 +16,7 @@ import com.lucerion.launcher.ui.theme.LucerionTheme
 
 /** Pantallas de la app. Navegación por estado simple; si el grafo crece se
  *  migrará a navigation-compose sin tocar las pantallas. */
-private enum class Pantalla { Splash, Home, Cuenta, Sincronizar }
+private enum class Pantalla { Splash, Home, Cuenta, Sincronizar, Ajustes }
 
 /**
  * Única Activity de la interfaz. El juego en sí corre en la Activity del motor.
@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
                         versionApp = BuildConfig.VERSION_NAME,
                         apodo = apodo,
                         alAbrirCuenta = { pantalla = Pantalla.Cuenta },
+                        alAbrirAjustes = { pantalla = Pantalla.Ajustes },
                         // El camino feliz se protege solo: sin apodo, JUGAR te
                         // lleva primero a elegirlo.
                         alJugar = {
@@ -47,6 +48,10 @@ class MainActivity : ComponentActivity() {
 
                     Pantalla.Sincronizar -> SincronizarScreen(
                         apodo = apodo ?: "Jugador",
+                        alVolver = { pantalla = Pantalla.Home },
+                    )
+
+                    Pantalla.Ajustes -> com.lucerion.launcher.ui.screens.AjustesScreen(
                         alVolver = { pantalla = Pantalla.Home },
                     )
 

@@ -89,6 +89,19 @@ object InstaladorJuego {
     }
 
     /**
+     * Reparación manual desde Ajustes: retira la versión instalada para que
+     * la próxima entrada la reconstruya limpia. Librerías y assets ya
+     * descargados se reutilizan; mundos y opciones del juego no se tocan.
+     */
+    fun repararInstalacion(dirInstancia: File) {
+        File(dirInstancia, "versions/$NOMBRE_VERSION").deleteRecursively()
+        marcadorLoader(dirInstancia).delete()
+        _estado.value = Estado.SinInstalar(
+            "Reparación pedida: en la próxima entrada el juego se reinstala limpio (lo ya descargado se reutiliza).",
+        )
+    }
+
+    /**
      * Instala Minecraft (la versión que declare el pack) + NeoForge (ídem).
      * Descarga grande la primera vez: cliente, librerías y assets del juego.
      */

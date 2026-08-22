@@ -73,6 +73,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(estado: Bundle?) {
         super.onCreate(estado)
+        escalaControles = com.lucerion.launcher.data.RepositorioAjustes.escalaControles(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // Pantalla completa REAL, incluida la zona de la cámara: el buffer del
         // juego debe medir lo mismo que el panel entero.
@@ -118,14 +119,13 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         raiz.addView(
             BotonTactil(this, BotonTactil.Glifo.CHAT, alPresionar = { abrirChat() }),
             FrameLayout.LayoutParams(
-                dp(TAM_BOTON_MENU), dp(TAM_BOTON_MENU),
+                dpc(TAM_BOTON_MENU), dpc(TAM_BOTON_MENU),
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL,
             ).apply { topMargin = dp(8) },
         )
         // Movimiento: palanca (stick) por defecto; la cruceta queda disponible
         // via preferencia hasta que exista la pantalla de ajustes.
-        val usarCruceta = getSharedPreferences("lucerion", MODE_PRIVATE)
-            .getBoolean("usar_cruceta", false)
+        val usarCruceta = com.lucerion.launcher.data.RepositorioAjustes.usarCruceta(this)
         if (usarCruceta) {
             raiz.addView(
                 crearCruceta(),
@@ -147,7 +147,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                     },
                 ),
                 FrameLayout.LayoutParams(
-                    dp(170), dp(170),
+                    dpc(170), dpc(170),
                     Gravity.BOTTOM or Gravity.START,
                 ).apply { bottomMargin = dp(22); leftMargin = dp(26) },
             )
@@ -155,7 +155,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         raiz.addView(
             botonTecla(BotonTactil.Glifo.SALTO, FCLKeycodes.KEY_SPACE),
             FrameLayout.LayoutParams(
-                dp(84), dp(84),
+                dpc(84), dpc(84),
                 Gravity.BOTTOM or Gravity.END,
             ).apply { bottomMargin = dp(48); rightMargin = dp(30) },
         )
@@ -181,7 +181,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 },
             ),
             FrameLayout.LayoutParams(
-                dp(84), dp(84),
+                dpc(84), dpc(84),
                 Gravity.BOTTOM or Gravity.END,
             ).apply { bottomMargin = dp(48); rightMargin = dp(132) },
         )
@@ -194,7 +194,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                 alSoltar = { puente?.pushEventKey(FCLKeycodes.KEY_LEFTSHIFT, 0, false) },
             ),
             FrameLayout.LayoutParams(
-                dp(58), dp(58),
+                dpc(58), dpc(58),
                 Gravity.BOTTOM or Gravity.END,
             ).apply { bottomMargin = dp(146); rightMargin = dp(42) },
         )
@@ -227,6 +227,10 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    /** dp escalado por el ajuste "Tamaño de los controles". */
+    private var escalaControles = 1f
+    private fun dpc(v: Int): Int = dp((v * escalaControles).toInt())
+
     // ── Botones estilo Bedrock: press al tocar, release al soltar ────────────
 
     // OJO: pushEventKey espera codigos FCLKeycodes (scancodes de Linux) que
@@ -244,7 +248,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         fun agrega(v: View) {
             addView(
                 v,
-                LinearLayout.LayoutParams(dp(TAM_BOTON_MENU), dp(TAM_BOTON_MENU)).apply {
+                LinearLayout.LayoutParams(dpc(TAM_BOTON_MENU), dpc(TAM_BOTON_MENU)).apply {
                     marginStart = dp(6)
                 },
             )
@@ -282,8 +286,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         fun celda(v: View, col: Int, fila: Int) {
             cont.addView(
                 v,
-                FrameLayout.LayoutParams(dp(lado), dp(lado)).apply {
-                    leftMargin = dp(col * paso); topMargin = dp(fila * paso)
+                FrameLayout.LayoutParams(dpc(lado), dpc(lado)).apply {
+                    leftMargin = dpc(col * paso); topMargin = dpc(fila * paso)
                 },
             )
         }
