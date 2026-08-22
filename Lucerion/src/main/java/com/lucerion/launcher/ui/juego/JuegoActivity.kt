@@ -54,6 +54,8 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
     private var cursorX = 0f
     private var cursorY = 0f
     private lateinit var entradaTexto: EditText
+    private lateinit var textura: TextureView
+    private var desplazadoPorTeclado = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     // ── Ciclo de vida y layout ───────────────────────────────────────────────
@@ -75,7 +77,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
 
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
-        val textura = TextureView(this).apply {
+        textura = TextureView(this).apply {
             surfaceTextureListener = this@JuegoActivity
             isOpaque = true
             setOnTouchListener { _, evento -> manejarToque(evento); true }
@@ -121,6 +123,23 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         )
 
         setContentView(raiz)
+
+        // Con el teclado abierto la linea de chat del juego queda tapada
+        // (esta abajo): se desplaza la superficie hacia arriba lo que mida el
+        // teclado, igual que FCL, y se restaura al cerrarlo.
+        window.decorView.viewTreeObserver.addOnGlobalLayoutListener {
+            val alturaPantalla = window.decorView.height
+            if (alturaPantalla == 0) return@addOnGlobalLayoutListener
+            val visible = android.graphics.Rect()
+            window.decorView.getWindowVisibleDisplayFrame(visible)
+            if (alturaPantalla * 2 / 3 > visible.bottom) {
+                textura.translationY = (visible.bottom - alturaPantalla).toFloat()
+                desplazadoPorTeclado = true
+            } else if (desplazadoPorTeclado) {
+                desplazadoPorTeclado = false
+                textura.translationY = 0f
+            }
+        }
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
@@ -308,8 +327,7 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
                         toqueDerecha -> LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_RIGHT
                         else -> LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT
                     }
-                    p.pushEventMouseButton(boton.toInt(), true)
-                    p.pushEventMouseButton(boton.toInt(), false)
+                    clic(p, boton.toInt())
                 }
             }
         }
@@ -354,9 +372,22 @@ class JuegoActivity : Activity(), TextureView.SurfaceTextureListener {
         }
     }
 
+    // La cola de entrada del juego DESCARTA press+release mandados en el mismo
+    // instante (asi murieron los primeros botones). Toda pulsacion programatica
+    // se separa en el tiempo, y pulsaciones consecutivas se encadenan para no
+    // pisarse entre si (p. ej. varios retrocesos seguidos del teclado).
+    private var proximoDisparo = 0L
+
     private fun tecla(p: FCLBridge, codigo: Int) {
-        p.pushEventKey(codigo, 0, true)
-        p.pushEventKey(codigo, 0, false)
+        val base = maxOf(android.os.SystemClock.uptimeMillis(), proximoDisparo)
+        proximoDisparo = base + 90
+        handler.postAtTime({ p.pushEventKey(codigo, 0, true) }, base)
+        handler.postAtTime({ p.pushEventKey(codigo, 0, false) }, base + 55)
+    }
+
+    private fun clic(p: FCLBridge, boton: Int) {
+        p.pushEventMouseButton(boton, true)
+        handler.postDelayed({ p.pushEventMouseButton(boton, false) }, 60)
     }
 
     private fun abrirTeclado() {
