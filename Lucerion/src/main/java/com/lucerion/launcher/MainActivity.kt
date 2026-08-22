@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
                     )
 
                     Pantalla.Sincronizar -> SincronizarScreen(
+                        apodo = apodo ?: "Jugador",
                         alVolver = { pantalla = Pantalla.Home },
                     )
 

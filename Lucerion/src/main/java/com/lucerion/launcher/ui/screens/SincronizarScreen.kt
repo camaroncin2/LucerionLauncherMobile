@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import com.lucerion.launcher.R
 import com.lucerion.launcher.data.lucerion.SincronizadorModpack
 import com.lucerion.launcher.data.lucerion.SincronizadorModpack.Estado
+import com.lucerion.launcher.motor.InstaladorJuego
+import com.lucerion.launcher.motor.Lanzador
 import com.lucerion.launcher.motor.MotorLucerion
 import com.lucerion.launcher.ui.theme.AmbarCta1
 import com.lucerion.launcher.ui.theme.AmbarCta2
@@ -59,7 +62,7 @@ import java.util.Locale
  * reintentar. Salir de la pantalla cancela la descarga de forma explícita.
  */
 @Composable
-fun SincronizarScreen(alVolver: () -> Unit) {
+fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
     val contexto = LocalContext.current
     val sincronizador = remember {
         SincronizadorModpack(File(contexto.getExternalFilesDir(null), "instancia-cretania"))
@@ -186,7 +189,7 @@ fun SincronizarScreen(alVolver: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     BarraProgreso(indeterminada = false, fraccion = 1f)
                     Spacer(Modifier.height(28.dp))
-                    BloqueMotor()
+                    BloqueMotor(apodo, File(contexto.getExternalFilesDir(null), "instancia-cretania"))
                 }
 
                 is Estado.Fallo -> {
@@ -217,7 +220,7 @@ fun SincronizarScreen(alVolver: () -> Unit) {
  * vez desde los assets del APK; despues esta seccion solo confirma que estan.
  */
 @Composable
-private fun BloqueMotor() {
+private fun BloqueMotor(apodo: String, dirInstancia: File) {
     val actividad = LocalContext.current as android.app.Activity
     val estadoMotor by MotorLucerion.estado.collectAsState()
     val ambito = rememberCoroutineScope()
@@ -266,13 +269,8 @@ private fun BloqueMotor() {
                 style = MaterialTheme.typography.titleMedium,
                 color = OroClaro,
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.sync_completo_detalle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextoSuave,
-                textAlign = TextAlign.Center,
-            )
+            Spacer(Modifier.height(20.dp))
+            BloqueJuego(apodo, dirInstancia)
         }
 
         is MotorLucerion.Estado.Fallo -> {
@@ -285,6 +283,116 @@ private fun BloqueMotor() {
             Spacer(Modifier.height(12.dp))
             BotonDorado(texto = stringResource(R.string.sync_reintentar)) {
                 ambito.launch { MotorLucerion.preparar(actividad) }
+            }
+        }
+    }
+}
+
+/**
+ * Instalacion del juego base (capa B) y lanzamiento (capa C).
+ * El boton final ES el objetivo del proyecto: entrar a Cretania.
+ */
+@Composable
+private fun BloqueJuego(apodo: String, dirInstancia: File) {
+    val actividad = LocalContext.current as android.app.Activity
+    val estadoJuego by InstaladorJuego.estado.collectAsState()
+    val ambito = rememberCoroutineScope()
+    var lanzando by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            InstaladorJuego.estaInstalado(dirInstancia)
+        }
+    }
+
+    Text(
+        text = stringResource(R.string.juego_titulo),
+        style = MaterialTheme.typography.titleMedium,
+        color = OroClaro,
+    )
+    Spacer(Modifier.height(8.dp))
+    when (val j = estadoJuego) {
+        is InstaladorJuego.Estado.SinInstalar -> {
+            Text(
+                text = stringResource(R.string.juego_explicacion),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+            BotonDorado(texto = stringResource(R.string.juego_instalar)) {
+                ambito.launch {
+                    InstaladorJuego.instalar(dirInstancia, File(actividad.cacheDir, "motor-cache"))
+                }
+            }
+        }
+
+        is InstaladorJuego.Estado.Instalando -> {
+            Text(
+                text = stringResource(R.string.juego_instalando, j.detalle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            BarraProgreso(indeterminada = true, fraccion = 0f)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.juego_instalando_nota),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextoSuave.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        is InstaladorJuego.Estado.Instalado -> {
+            Text(
+                text = stringResource(R.string.juego_listo),
+                style = MaterialTheme.typography.titleMedium,
+                color = OroClaro,
+            )
+            Spacer(Modifier.height(16.dp))
+            if (lanzando) {
+                Text(
+                    text = stringResource(R.string.juego_lanzando),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave,
+                )
+                Spacer(Modifier.height(12.dp))
+                BarraProgreso(indeterminada = true, fraccion = 0f)
+            } else {
+                BotonDorado(texto = stringResource(R.string.juego_entrar)) {
+                    lanzando = true
+                    ambito.launch {
+                        try {
+                            Lanzador.lanzar(actividad, dirInstancia, apodo)
+                        } finally {
+                            lanzando = false
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.juego_entrar_detalle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        is InstaladorJuego.Estado.Fallo -> {
+            Text(
+                text = stringResource(R.string.juego_fallo, j.motivo),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            BotonDorado(texto = stringResource(R.string.sync_reintentar)) {
+                ambito.launch {
+                    InstaladorJuego.instalar(dirInstancia, File(actividad.cacheDir, "motor-cache"))
+                }
             }
         }
     }

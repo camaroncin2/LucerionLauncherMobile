@@ -37,6 +37,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Superficie del juego: apaisada, inmersiva, proceso principal. -->
+        <activity
+            android:name=".ui.juego.JuegoActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation"
+            android:launchMode="singleTask" />
+
         <!-- JVM del instalador (procesadores de NeoForge/Forge). FCLCore no
              declara manifest propio: cada consumidor del motor lo hace. -->
         <service

@@ -33,6 +33,12 @@ object ClienteLucerion {
         val files: List<Archivo>,
     )
 
+    data class Pack(
+        val version: String,
+        val minecraft: String,
+        @SerializedName("loaderVersion") val loaderVersion: String,
+    )
+
     data class Archivo(
         val kind: String,
         val file: String,
@@ -40,6 +46,19 @@ object ClienteLucerion {
         val size: Long,
         val sha1: String?,
     )
+
+    /** Ficha del pack: de aquí sale la versión exacta de NeoForge a instalar. */
+    suspend fun obtenerPack(): Pack = withContext(Dispatchers.IO) {
+        val conexion = URL("$BASE/api/public/modpack/$PACK_ID").openConnection() as HttpURLConnection
+        conexion.connectTimeout = 15_000
+        conexion.readTimeout = 30_000
+        try {
+            if (conexion.responseCode != 200) error("El servidor de modpacks respondió ${conexion.responseCode}")
+            conexion.inputStream.bufferedReader().use { gson.fromJson(it, Pack::class.java) }
+        } finally {
+            conexion.disconnect()
+        }
+    }
 
     suspend fun obtenerInstallInfo(): InstallInfo = withContext(Dispatchers.IO) {
         val conexion = URL("$BASE/api/public/modpack/$PACK_ID/install-info")

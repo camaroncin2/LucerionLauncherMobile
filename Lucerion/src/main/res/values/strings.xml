@@ -50,4 +50,16 @@
     <string name="motor_preparando">Instalando: %1$s…</string>
     <string name="motor_listo">Componentes del juego listos ✓</string>
     <string name="motor_fallo">No se pudieron instalar los componentes: %1$s</string>
+
+    <!-- Instalación y lanzamiento del juego -->
+    <string name="juego_titulo">Minecraft + NeoForge</string>
+    <string name="juego_explicacion">Última pieza: el juego base y NeoForge se descargan de los servidores oficiales de Minecraft. Es la descarga grande (≈500 MB) y también se hace una sola vez.</string>
+    <string name="juego_instalar">INSTALAR EL JUEGO</string>
+    <string name="juego_instalando">%1$s</string>
+    <string name="juego_instalando_nota">Sin barra exacta en este paso: el motor descarga cientos de archivos. Puede tardar 5-15 minutos según tu conexión. No cierres la app.</string>
+    <string name="juego_listo">Juego instalado ✓</string>
+    <string name="juego_fallo">No se pudo instalar el juego: %1$s</string>
+    <string name="juego_entrar">ENTRAR A CRETANIA</string>
+    <string name="juego_entrar_detalle">Arranca Minecraft con tu apodo y conecta directo a mc.cretania.net. El primer arranque con 172 mods tarda varios minutos.</string>
+    <string name="juego_lanzando">Arrancando el juego…</string>
 </resources>
