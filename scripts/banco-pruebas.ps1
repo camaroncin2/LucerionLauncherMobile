@@ -83,30 +83,64 @@ if ($capa) {
     Write-Host "(el resto de medidas si se registran)"
 }
 
-# Un unico script en el dispositivo por muestra: mas rapido y todo del mismo
-# instante, en vez de una decena de llamadas desfasadas entre si.
-$sonda = @"
+# ── sonda ───────────────────────────────────────────────────────────────────
+# Va como ARCHIVO al telefono, no como linea de comandos.
+#
+# PowerShell termina las lineas con retorno de carro y salto (\r\n), y el
+# interprete de Android trata el \r como parte del comando: un bucle se rompia
+# con "syntax error: unexpected do" en cada muestra. Escribiendo el archivo con
+# saltos de linea de Unix y empujandolo con adb push, el problema desaparece y
+# el script se puede leer entero, que con un one-liner gigante no pasaba.
+#
+# Comilla simple en el here-string a proposito: asi PowerShell NO toca los $,
+# que son variables del interprete del telefono, no suyas.
+$sonda = @'
+#!/system/bin/sh
+# $1 = PID del proceso del juego
 cmax=0; gpu=0; piel=0
 for z in /sys/class/thermal/thermal_zone*; do
-  n=`$(cat `$z/type 2>/dev/null); t=`$(cat `$z/temp 2>/dev/null)
-  [ -z "`$t" ] && continue
-  case "`$n" in cpu-*) [ `$t -gt `$cmax ] && cmax=`$t;; gpuss-0) gpu=`$t;; back_temp) piel=`$t;; esac
+  n=$(cat $z/type 2>/dev/null); t=$(cat $z/temp 2>/dev/null)
+  [ -z "$t" ] && continue
+  case "$n" in
+    cpu-*) [ "$t" -gt "$cmax" ] && cmax=$t ;;
+    gpuss-0) gpu=$t ;;
+    back_temp) piel=$t ;;
+  esac
 done
 cd2=0; cdg=0
 for c in /sys/class/thermal/cooling_device*; do
-  ty=`$(cat `$c/type 2>/dev/null)
-  case "`$ty" in cpu-cluster2) cd2=`$(cat `$c/cur_state);; gpu) cdg=`$(cat `$c/cur_state);; esac
+  ty=$(cat $c/type 2>/dev/null)
+  case "$ty" in
+    cpu-cluster2) cd2=$(cat $c/cur_state) ;;
+    gpu) cdg=$(cat $c/cur_state) ;;
+  esac
 done
-st=`$(dumpsys thermalservice | grep -m1 'Thermal Status' | tr -dc '0-9')
-bat=`$(dumpsys battery | grep -m1 temperature | tr -dc '0-9')
-ma=`$(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
-rss=`$(grep VmRSS /proc/$pid_juego/status 2>/dev/null | tr -dc '0-9')
-swp=`$(grep VmSwap /proc/$pid_juego/status 2>/dev/null | tr -dc '0-9')
-disp=`$(grep MemAvailable /proc/meminfo | tr -dc '0-9')
-cpu=`$(top -n 1 -b -q -o PID,%CPU 2>/dev/null | grep -m1 '^ *$pid_juego ' | awk '{print `$2}')
-prime=`$(cat /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq 2>/dev/null)
-echo "`$((cmax/1000));`$((gpu/1000));`$((piel/1000));`$((bat/10));`$st;`$cd2;`$cdg;`$ma;`$rss;`$swp;`$disp;`$cpu;`$((prime/1000))"
-"@
+st=$(dumpsys thermalservice | grep -m1 'Thermal Status' | tr -dc '0-9')
+bat=$(dumpsys battery | grep -m1 temperature | tr -dc '0-9')
+ma=$(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
+rss=$(grep VmRSS /proc/$1/status 2>/dev/null | tr -dc '0-9')
+swp=$(grep VmSwap /proc/$1/status 2>/dev/null | tr -dc '0-9')
+disp=$(grep MemAvailable /proc/meminfo | tr -dc '0-9')
+cpu=$(top -n 1 -b -q -o PID,%CPU 2>/dev/null | awk -v p=$1 '$1==p {print $2; exit}')
+prime=$(cat /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq 2>/dev/null)
+echo "$((cmax/1000));$((gpu/1000));$((piel/1000));$((bat/10));$st;$cd2;$cdg;$ma;$rss;$swp;$disp;$cpu;$((prime/1000))"
+'@
+
+$sondaLocal = Join-Path $env:TEMP "lucerion-sonda.sh"
+# WriteAllText y no Out-File: hace falta control total sobre los fines de linea.
+[System.IO.File]::WriteAllText($sondaLocal, ($sonda -replace "`r`n", "`n"))
+$sondaRemota = "/data/local/tmp/lucerion-sonda.sh"
+& $adb -s $Serie push $sondaLocal $sondaRemota | Out-Null
+Sh "chmod 755 $sondaRemota" | Out-Null
+
+# Comprobacion antes de perder diez minutos midiendo la nada.
+$ensayo = (Sh "sh $sondaRemota $pid_juego").Trim()
+if (($ensayo -split ";").Count -lt 13) {
+    Write-Host "La sonda no responde bien. Devolvio:" -ForegroundColor Red
+    Write-Host "  $ensayo"
+    exit 1
+}
+Write-Host "Sonda verificada" -ForegroundColor Green
 
 function LeerFps {
     if (-not $capa) { return "" }
@@ -142,7 +176,7 @@ $inicio = Get-Date
 $muestras = @()
 for ($i = 1; $i -le $total; $i++) {
     $fps = LeerFps
-    $crudo = (Sh $sonda).Trim()
+    $crudo = (Sh "sh $sondaRemota $pid_juego").Trim()
     $c = $crudo -split ";"
     if ($c.Count -lt 13) { Write-Host "[$i] sonda incompleta, salto" -ForegroundColor Yellow; Start-Sleep -Seconds $IntervaloSegundos; continue }
 
