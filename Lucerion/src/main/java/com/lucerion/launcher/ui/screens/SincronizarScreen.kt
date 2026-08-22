@@ -152,11 +152,20 @@ fun SincronizarScreen(apodo: String, alVolver: () -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = stringResource(
-                            R.string.sync_bytes,
-                            formatearBytes(e.bytesListos), formatearBytes(e.bytesTotales),
+                            R.string.sync_progreso,
+                            (fraccion * 100).toInt(),
+                            formatearBytes(e.bytesListos),
+                            formatearBytes(e.bytesTotales),
+                            formatearBytes(e.bytesTotales - e.bytesListos),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextoSuave,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.sync_velocidad, formatearBytes(e.velocidadBps)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = OroClaro.copy(alpha = 0.85f),
                     )
                     Spacer(Modifier.height(16.dp))
                     BarraProgreso(indeterminada = false, fraccion = fraccion)
@@ -335,7 +344,29 @@ private fun BloqueJuego(apodo: String, dirInstancia: File) {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(12.dp))
-            BarraProgreso(indeterminada = true, fraccion = 0f)
+            if (j.tareasConocidas > 0) {
+                BarraProgreso(
+                    indeterminada = false,
+                    fraccion = j.tareasHechas.toFloat() / j.tareasConocidas,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.juego_progreso_bytes,
+                        formatearBytes(j.bytesDescargados), formatearBytes(j.velocidadBps),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OroClaro.copy(alpha = 0.85f),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.juego_progreso_tareas, j.tareasHechas, j.tareasConocidas),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoSuave.copy(alpha = 0.8f),
+                )
+            } else {
+                BarraProgreso(indeterminada = true, fraccion = 0f)
+            }
             Spacer(Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.juego_instalando_nota),

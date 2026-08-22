@@ -35,7 +35,8 @@
     <string name="sync_nota">La descarga se reanuda sola si se corta: lo ya bajado y verificado no se repite. Conviene estar en WiFi.</string>
     <string name="sync_descargar">DESCARGAR</string>
     <string name="sync_descargando">%1$d de %2$d archivos</string>
-    <string name="sync_bytes">%1$s de %2$s</string>
+    <string name="sync_progreso">%1$d%% — %2$s de %3$s · quedan %4$s</string>
+    <string name="sync_velocidad">%1$s por segundo</string>
     <string name="sync_cancelar">Cancelar</string>
     <string name="sync_completo">Modpack listo — versión %1$s, %2$d mods verificados</string>
     <string name="sync_completo_detalle">El lanzamiento del juego llega en la próxima actualización del launcher. Tus archivos ya quedan listos y al día.</string>
@@ -56,7 +57,9 @@
     <string name="juego_explicacion">Última pieza: el juego base y NeoForge se descargan de los servidores oficiales de Minecraft. Es la descarga grande (≈500 MB) y también se hace una sola vez.</string>
     <string name="juego_instalar">INSTALAR EL JUEGO</string>
     <string name="juego_instalando">%1$s</string>
-    <string name="juego_instalando_nota">Sin barra exacta en este paso: el motor descarga cientos de archivos. Puede tardar 5-15 minutos según tu conexión. No cierres la app.</string>
+    <string name="juego_instalando_nota">El total exacto no se conoce por adelantado: el motor descubre archivos sobre la marcha. Suele rondar los 500 MB. No cierres la app.</string>
+    <string name="juego_progreso_bytes">Descargado %1$s · %2$s por segundo</string>
+    <string name="juego_progreso_tareas">%1$d de %2$d tareas del instalador (aprox.)</string>
     <string name="juego_listo">Juego instalado ✓</string>
     <string name="juego_fallo">No se pudo instalar el juego: %1$s</string>
     <string name="juego_entrar">ENTRAR A CRETANIA</string>

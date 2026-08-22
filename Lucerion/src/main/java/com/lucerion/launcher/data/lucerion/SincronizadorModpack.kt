@@ -59,6 +59,7 @@ class SincronizadorModpack(private val dirInstancia: File) {
             val bytesListos: Long,
             val bytesTotales: Long,
             val archivoActual: String,
+            val velocidadBps: Long,
         ) : Estado()
 
         data class Completo(val version: String, val mods: Int) : Estado()
@@ -116,30 +117,45 @@ class SincronizadorModpack(private val dirInstancia: File) {
         val bytesTotales = p.faltantes.sumOf { it.size }
         val bytesListos = AtomicLong(0)
         val archivosListos = AtomicLong(0)
+        val velocidad = AtomicLong(0)
+        val archivoActual = java.util.concurrent.atomic.AtomicReference("")
+
+        fun emitir() {
+            _estado.value = Estado.Descargando(
+                archivosListos.get().toInt(), p.faltantes.size,
+                bytesListos.get(), bytesTotales,
+                archivoActual.get(), velocidad.get(),
+            )
+        }
 
         try {
             coroutineScope {
+                // Velocimetro: delta de bytes por segundo, emitido en cada tick.
+                val ticker = async(Dispatchers.IO) {
+                    var previo = 0L
+                    while (true) {
+                        kotlinx.coroutines.delay(1000)
+                        val ahora = bytesListos.get()
+                        velocidad.set(ahora - previo)
+                        previo = ahora
+                        emitir()
+                    }
+                }
                 val semaforo = Semaphore(4)
                 p.faltantes.map { archivo ->
                     async(Dispatchers.IO) {
                         semaforo.withPermit {
-                            _estado.value = Estado.Descargando(
-                                archivosListos.get().toInt(), p.faltantes.size,
-                                bytesListos.get(), bytesTotales,
-                                File(archivo.file).name,
-                            )
+                            archivoActual.set(File(archivo.file).name)
+                            emitir()
                             descargarUno(archivo) { delta ->
-                                val ahora = bytesListos.addAndGet(delta)
-                                _estado.value = Estado.Descargando(
-                                    archivosListos.get().toInt(), p.faltantes.size,
-                                    ahora, bytesTotales,
-                                    File(archivo.file).name,
-                                )
+                                bytesListos.addAndGet(delta)
                             }
                             archivosListos.incrementAndGet()
+                            emitir()
                         }
                     }
                 }.awaitAll()
+                ticker.cancel()
             }
             withContext(Dispatchers.IO) { limpiarSobrantes(p.deseados) }
             _estado.value = Estado.Completo(p.info.version, p.deseados.size)

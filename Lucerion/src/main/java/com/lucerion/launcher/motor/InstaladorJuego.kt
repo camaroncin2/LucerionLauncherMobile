@@ -27,7 +27,13 @@ object InstaladorJuego {
 
     sealed class Estado {
         data object SinInstalar : Estado()
-        data class Instalando(val detalle: String) : Estado()
+        data class Instalando(
+            val detalle: String,
+            val bytesDescargados: Long = 0,
+            val velocidadBps: Long = 0,
+            val tareasHechas: Int = 0,
+            val tareasConocidas: Int = 0,
+        ) : Estado()
         data object Instalado : Estado()
         data class Fallo(val motivo: String) : Estado()
     }
@@ -71,18 +77,42 @@ object InstaladorJuego {
             val remoto = listaNeoForge.getVersion(pack.minecraft, pack.loaderVersion)
                 .orElseThrow { IllegalStateException("NeoForge ${pack.loaderVersion} no existe para ${pack.minecraft}") }
 
-            _estado.value = Estado.Instalando(
-                "Descargando Minecraft ${pack.minecraft} + NeoForge (cliente, librerías y assets — varios minutos)",
-            )
+            val detalle = "Descargando Minecraft ${pack.minecraft} + NeoForge"
+            _estado.value = Estado.Instalando(detalle)
             val tarea = dependencias.gameBuilder()
                 .name(NOMBRE_VERSION)
                 .gameVersion(pack.minecraft)
                 .version(remoto)
                 .buildAsync()
 
-            // test() ejecuta la cadena completa de tareas y espera su resultado.
-            val ok = tarea.test()
-            if (!ok) error("La instalación no terminó bien; revisa la conexión y reintenta")
+            // Progreso real: bytes y velocidad los publica FetchTask cada segundo
+            // (speedEvent); el conteo de tareas sale del TaskListener. El total de
+            // tareas crece a medida que el motor descubre trabajo — por eso el
+            // porcentaje se etiqueta como aproximado en la UI.
+            val bytes = java.util.concurrent.atomic.AtomicLong(0)
+            val hechas = java.util.concurrent.atomic.AtomicInteger(0)
+            lateinit var ejecutor: com.tungsten.fclcore.task.TaskExecutor
+            val oyenteVelocidad = java.util.function.Consumer<com.tungsten.fclcore.task.FetchTask.SpeedEvent> { ev ->
+                val total = bytes.addAndGet(ev.speed.toLong())
+                _estado.value = Estado.Instalando(
+                    detalle, total, ev.speed.toLong(), hechas.get(), ejecutor.taskCount,
+                )
+            }
+            com.tungsten.fclcore.task.FetchTask.speedEvent
+                .channel(com.tungsten.fclcore.task.FetchTask.SpeedEvent::class.java)
+                .registerWeak(oyenteVelocidad)
+
+            ejecutor = tarea.executor(object : com.tungsten.fclcore.task.TaskListener() {
+                override fun onFinished(t: com.tungsten.fclcore.task.Task<*>) {
+                    hechas.incrementAndGet()
+                }
+            })
+            val ok = ejecutor.test()
+            if (!ok) {
+                val motivo = generateSequence<Throwable>(ejecutor.exception) { it.cause }
+                    .lastOrNull()?.message
+                error(motivo ?: "La instalación no terminó bien; revisa la conexión y reintenta")
+            }
 
             repo.refreshVersions()
             if (!estaInstalado(dirInstancia)) error("La versión no quedó registrada tras instalar")
