@@ -232,6 +232,18 @@ public abstract class HttpRequest {
         return new HttpPostRequest(url);
     }
 
+    /**
+     * Reintenta solo lo que tiene sentido reintentar.
+     *
+     * Antes se capturaba cualquier fallo y se repetia al instante, sin mirar
+     * el codigo ni esperar entre intentos. Con un 429 (demasiadas peticiones)
+     * eso era contraproducente: el servidor pide que pares y le llegaban cinco
+     * peticiones seguidas, alargando el bloqueo en vez de resolverlo. Lo mismo
+     * con cualquier 4xx: un error del cliente no cambia por repetirlo.
+     *
+     * Se reintenta lo que si puede mejorar solo —cortes de red y errores 5xx—
+     * y con una espera creciente entre intentos.
+     */
     private static String getStringWithRetry(ExceptionalSupplier<String, IOException> supplier, int retryTimes) throws IOException {
         Throwable exception = null;
         for (int i = 0; i < retryTimes; i++) {
@@ -239,6 +251,18 @@ public abstract class HttpRequest {
                 return supplier.get();
             } catch (Throwable e) {
                 exception = e;
+                int codigo = codigoDeRespuesta(e);
+                if (codigo >= 400 && codigo < 500 && codigo != 408) {
+                    break;
+                }
+                if (i < retryTimes - 1) {
+                    try {
+                        Thread.sleep(400L * (i + 1));
+                    } catch (InterruptedException interrumpido) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
         }
         if (exception != null) {
@@ -249,6 +273,16 @@ public abstract class HttpRequest {
             }
         }
         throw new IOException("retry 0");
+    }
+
+    /** Codigo HTTP del fallo, o 0 si no venia de una respuesta del servidor. */
+    private static int codigoDeRespuesta(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof ResponseCodeException) {
+                return ((ResponseCodeException) t).getResponseCode();
+            }
+        }
+        return 0;
     }
 
     public interface Authorization {

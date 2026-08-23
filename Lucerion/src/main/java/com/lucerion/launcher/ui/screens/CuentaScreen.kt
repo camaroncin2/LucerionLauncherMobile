@@ -280,11 +280,7 @@ private fun BloqueMicrosoft() {
                             sesionGuardada = true
                             mensaje = null
                         } catch (e: Exception) {
-                            // La causa de fondo dice mucho más que la excepción
-                            // de arriba (que suele ser un envoltorio).
-                            val raiz = generateSequence<Throwable>(e) { it.cause }.last()
-                            mensaje = "No se pudo iniciar sesión: " +
-                                (raiz.message ?: raiz.javaClass.simpleName)
+                            mensaje = explicarFalloDeSesion(e)
                         } finally {
                             esperando = false
                             codigo = null
@@ -311,5 +307,54 @@ private fun BotonBordeCuenta(texto: String, alPulsar: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(texto, style = MaterialTheme.typography.labelLarge, color = OroClaro)
+    }
+}
+
+/**
+ * Traduce el fallo de inicio de sesión a algo accionable.
+ *
+ * Antes se mostraba el mensaje crudo de la excepción: un volcado en inglés con
+ * la URL y el código HTTP. Decía qué había pasado a quien ya sabía leerlo, y
+ * nada a todos los demás. Cada uno de estos casos se resuelve de forma
+ * distinta, y ninguno se resuelve volviendo a pulsar el botón.
+ */
+private fun explicarFalloDeSesion(e: Throwable): String {
+    val codigo = generateSequence<Throwable>(e) { it.cause }
+        .mapNotNull { t ->
+            Regex("response code: (\\d+)").find(t.message ?: "")?.groupValues?.get(1)?.toIntOrNull()
+        }
+        .firstOrNull()
+
+    return when (codigo) {
+        429 ->
+            "Minecraft está rechazando peticiones por exceso (429). No es un " +
+                "problema de tu cuenta ni de la contraseña: hay que esperar. " +
+                "Deja pasar un rato largo antes de volver a intentarlo — cada " +
+                "intento durante el bloqueo lo alarga. Mientras tanto puedes " +
+                "jugar con tu apodo, que es lo que usa Cretania."
+        403 ->
+            "Minecraft rechazó la aplicación (403). Suele significar que el " +
+                "registro de Lucerion todavía está en revisión por Microsoft. " +
+                "No hay nada que hacer desde aquí; entra con tu apodo mientras " +
+                "tanto."
+        401 ->
+            "La sesión caducó o fue revocada (401). Vuelve a iniciar sesión " +
+                "desde cero."
+        404 ->
+            "Esa cuenta de Microsoft no tiene Minecraft: Java Edition. Si lo " +
+                "compraste con otra cuenta, inicia sesión con esa."
+        else -> {
+            val raiz = generateSequence<Throwable>(e) { it.cause }.last()
+            val detalle = raiz.message ?: raiz.javaClass.simpleName
+            if (detalle.contains("Unable to resolve host", true) ||
+                detalle.contains("timeout", true) ||
+                detalle.contains("Failed to connect", true)
+            ) {
+                "No se pudo contactar con Microsoft. Revisa tu conexión e " +
+                    "inténtalo de nuevo."
+            } else {
+                "No se pudo iniciar sesión: " + detalle
+            }
+        }
     }
 }
